@@ -99,7 +99,25 @@ Four edubtm_InitLeaf(
     Four e;			/* error number */
     BtreeLeaf *page;		/* a page pointer */
 
+    e = BfM_GetNewTrain(leaf, (char**)&page, PAGE_BUF);
+    if (e < 0) ERR( e );
 
+    page->hdr.pid = *leaf;
+    SET_PAGE_TYPE(page, BTREE_PAGE_TYPE);
+    if (root) page->hdr.type |= ROOT;
+    page->hdr.type |= LEAF;
+
+    page->hdr.nSlots = 0;
+    page->hdr.free = 0;
+    page->hdr.prevPage = NIL;
+    page->hdr.nextPage = NIL;
+    page->hdr.unused = 0;
+
+    e = BfM_SetDirty(leaf, PAGE_BUF);
+    if (e < 0) ERRB1(e, leaf, PAGE_BUF);
+
+    e = BfM_FreeTrain(leaf, PAGE_BUF);
+    if (e < 0) ERR( e );
     
     return(eNOERROR);
     
