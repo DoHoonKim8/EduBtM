@@ -72,7 +72,32 @@ void edubtm_CompactInternalPage(
     Two                 i;                      /* index variable */
     btm_InternalEntry   *entry;                 /* an entry in leaf page */
 
-    
+    memcpy(apage, &tpage, PAGESIZE);
+
+    apageDataOffset = 0;
+    for (i = 0; i < tpage.hdr.nSlots; i++) {
+        if (i == slotNo) continue;
+        entry = (btm_InternalEntry*)&(tpage.data[tpage.slot[-i]]);
+        len = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + entry->klen);
+
+        memcpy(&apage->data[apageDataOffset], entry, len);
+        apage->slot[-i] = apageDataOffset;
+
+        apageDataOffset += len;
+    }
+
+    if (slotNo != NIL) {
+        entry = (btm_LeafEntry*)&(tpage.data[tpage.slot[-slotNo]]);
+        len = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + entry->klen);
+
+        apage->slot[-slotNo] = apageDataOffset;
+        memcpy(apage->data[apageDataOffset], entry, len);
+
+        apageDataOffset += len;
+    }
+
+    apage->hdr.free = apageDataOffset;
+    apage->hdr.unused = 0;
 
 } /* edubtm_CompactInternalPage() */
 
@@ -110,6 +135,30 @@ void edubtm_CompactLeafPage(
     btm_LeafEntry 	*entry;			/* an entry in leaf page */
     Two 		alignedKlen;		/* aligned length of the key length */
 
-    
+    memcpy(apage, &tpage, PAGESIZE);
 
+    apageDataOffset = 0;
+    for (i = 0; i < tpage.hdr.nSlots; i++) {
+        if (i == slotNo) continue;
+        entry = (btm_LeafEntry*)&(tpage.data[tpage.slot[-i]]);
+        len = BTM_LEAFENTRY_FIXED + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
+
+        memcpy(&apage->data[apageDataOffset], entry, len);
+        apage->slot[-i] = apageDataOffset;
+
+        apageDataOffset += len;
+    }
+
+    if (slotNo != NIL) {
+        entry = (btm_LeafEntry*)&(tpage.data[tpage.slot[-slotNo]]);
+        len = BTM_LEAFENTRY_FIXED + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
+
+        apage->slot[-slotNo] = apageDataOffset;
+        memcpy(&apage->data[apageDataOffset], entry, len);
+
+        apageDataOffset += len;
+    }
+
+    apage->hdr.free = apageDataOffset;
+    apage->hdr.unused = 0;
 } /* edubtm_CompactLeafPage() */
