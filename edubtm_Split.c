@@ -85,6 +85,7 @@ Four edubtm_SplitInternal(
     Four                        sum;                    /* the size of a filled area */
     Boolean                     flag=FALSE;             /* TRUE if 'item' become a member of fpage */
     PageID                      newPid;                 /* for a New Allocated Page */
+    BtreeInternal               *tpage;
     BtreeInternal               *npage;                 /* a page pointer for the new allocated page */
     Two                         fEntryOffset;           /* starting offset of an entry in fpage */
     Two                         nEntryOffset;           /* starting offset of an entry in npage */
@@ -93,7 +94,95 @@ Four edubtm_SplitInternal(
     btm_InternalEntry           *nEntry;                /* internal entry in the new page, npage*/
     Boolean                     isTmp;
 
+    e = btm_AllocPage(catObjForFile, &fpage->hdr.pid, &newPid);
+    if (e < 0) ERR( e );
 
+    e = edubtm_InitInternal(&newPid, FALSE, isTmp);
+    if (e < 0) ERR( e );
+
+    e = BfM_GetNewTrain(&newPid, (char**)&npage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    tpage->hdr.free = fpage->hdr.free;
+    tpage->hdr.nSlots = fpage->hdr.nSlots;
+    tpage->hdr.unused = fpage->hdr.unused;
+
+    maxLoop = fpage->hdr.nSlots + 1;
+    sum = 0;
+    i = 0; // slot No. in `fpage`
+    j = 0; // slot No. in `tpage`
+
+    for ( ; j < maxLoop; j++) {
+        if (sum > BI_HALF) {
+            break;
+        }
+        if (j == high + 1) {
+            entryLen = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen);
+            isTmp = TRUE;
+        } else {
+            fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]);
+            entryLen = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + fEntry->klen);
+
+            tpage->slot[-j] = fpage->slot[-i];
+            memcpy(&tpage->data[tpage->slot[-j]], fEntry, entryLen);
+            i++;
+        }
+        sum += entryLen + sizeof(Two);
+    }
+
+    fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]);
+    npage->hdr.p0 = fEntry->spid;
+
+    ritem->spid = newPid.pageNo;
+    ritem->klen = fEntry->klen;
+    memcpy(ritem->kval, fEntry->kval, fEntry->klen);
+
+    k = 0;
+    nEntryOffset = 0;
+    for ( ; j + k < maxLoop - 1; k++) {
+        if (i == high + 1) {
+            npage->slot[-k] = nEntryOffset;
+            nEntry = (btm_InternalEntry*)&npage->data[npage->slot[-k]];
+            nEntry->klen = item->klen;
+            nEntry->spid = item->spid;
+            memcpy(nEntry->kval, item->kval, item->klen);
+
+            entryLen = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + nEntry->klen);
+        } else {
+            fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]);
+            entryLen = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + fEntry->klen);
+
+            npage->slot[-k] = nEntryOffset;
+            memcpy(&npage->data[npage->slot[-k]], fEntry, entryLen);
+            i++;
+        }
+        nEntryOffset += entryLen;
+    }
+
+    if (isTmp) {
+        if (sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen) > BI_CFREE(tpage)) {
+            edubtm_CompactInternalPage(tpage, NIL);
+        }
+        fEntry->klen = item->klen;
+        fEntry->spid = item->spid;
+        memcpy(fEntry->kval, item->kval, item->klen);
+
+        entryLen = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen); 
+
+        tpage->slot[-(high + 1)] = tpage->hdr.free;
+        memcpy(&tpage->data[tpage->hdr.free], fEntry, entryLen);
+    }
+
+    memcpy(fpage, tpage, sizeof(*tpage));
+
+    npage->hdr.free = nEntryOffset;
+    npage->hdr.nSlots = k;
+
+    e = BfM_SetDirty(&fpage->hdr.pid, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_FreeTrain(&newPid, PAGE_BUF);
+    if (e < 0) ERR( e );
     
     return(eNOERROR);
     
@@ -158,7 +247,110 @@ Four edubtm_SplitLeaf(
     Boolean                     flag;
     Boolean                     isTmp;
  
+    e = btm_AllocPage(catObjForFile, root, &newPid);
+    if (e < 0) ERR( e );
+
+    e = edubtm_InitLeaf(&newPid, FALSE, isTmp);
+    if (e < 0) ERR( e );
+
+    e = BfM_GetNewTrain(&newPid, (char**)&npage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    tpage.hdr.free = fpage->hdr.free;
+    tpage.hdr.nSlots = fpage->hdr.nSlots;
+    tpage.hdr.unused = fpage->hdr.unused;
+
+    maxLoop = fpage->hdr.nSlots + 1;
+    sum = 0;
+    i = 0; // slot No. in `fpage`
+    j = 0; // slot No. in `tpage`
+
+    for ( ; j < maxLoop; j++) {
+        if (sum >= BL_HALF) break;
+        if (j == high + 1) {
+            alignedKlen = ALIGNED_LENGTH(item->klen);
+            entryLen = BTM_LEAFENTRY_FIXED + alignedKlen + sizeof(ObjectID);
+            
+            isTmp = TRUE; // insert index entry in `tpage`
+            itemEntryLen = entryLen;
+        } else {
+            fEntry = (btm_LeafEntry*)&(fpage->data[fpage->slot[-i]]);
+            alignedKlen = ALIGNED_LENGTH(fEntry->klen);
+            entryLen = BTM_LEAFENTRY_FIXED + alignedKlen + sizeof(ObjectID);
+            tpage.slot[-j] = fpage->slot[-i];
+            memcpy(&tpage.data[tpage.slot[-j]], fEntry, entryLen);
+            i++;
+        }
+        sum += entryLen + sizeof(Two);
+    }
+
+    k = 0; // slot No. in `npage`
+    nEntryOffset = 0;
+    for ( ; j + k < maxLoop; k++) {
+        if (i == high + 1) {
+            npage->slot[-k] = nEntryOffset;
+            itemEntry = (btm_LeafEntry*)&npage->data[nEntryOffset];
+            itemEntry->klen = item->klen;
+            itemEntry->nObjects = 1;
+            memcpy(itemEntry->kval, item->kval, item->klen);
+
+            alignedKlen = ALIGNED_LENGTH(itemEntry->klen);
+            entryLen = BTM_LEAFENTRY_FIXED + alignedKlen + sizeof(ObjectID);
+        } else {
+            fEntry = (btm_LeafEntry*)&(fpage->data[fpage->slot[-i]]);
+            alignedKlen = ALIGNED_LENGTH(fEntry->klen);
+            entryLen = BTM_LEAFENTRY_FIXED + alignedKlen + sizeof(ObjectID);
+            memcpy(&npage->data[nEntryOffset], fEntry, entryLen);
+            npage->slot[-k] = nEntryOffset;
+            i++;
+        }
+        nEntryOffset += entryLen;
+    }
+
+    if (isTmp) {
+        if (BL_CFREE(&tpage) < itemEntryLen) {
+            edubtm_CompactLeafPage(&tpage, NIL);
+        }
+        itemEntry = &tpage.data[tpage.slot[-(high + 1)]];
+        itemEntry->nObjects = 1;
+        itemEntry->klen = item->klen;
+        memcpy(itemEntry->kval, item->kval, item->klen);
+
+        tpage.slot[-(high + 1)] = tpage.hdr.free;
+
+        tpage.hdr.free += itemEntryLen;
+        tpage.hdr.nSlots++;
+    }
+
+    memcpy(fpage, &tpage, sizeof(tpage));
+
+    npage->hdr.free = nEntryOffset;
+    npage->hdr.nSlots = k;
+
+    nextPid.volNo = newPid.volNo;
+    nextPid.pageNo = fpage->hdr.nextPage;
+
+    e = BfM_GetTrain(&nextPid, (char**)&mpage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    npage->hdr.nextPage = fpage->hdr.nextPage;
+    npage->hdr.prevPage = mpage->hdr.prevPage;
     
+    fpage->hdr.nextPage = newPid.pageNo;
+    mpage->hdr.prevPage = newPid.pageNo;
+
+    ritem->klen = ((btm_LeafEntry*)&(npage->data[npage->slot[0]]))->klen;
+    ritem->spid = newPid.pageNo;
+    memcpy(&ritem->kval, ((btm_LeafEntry*)&(npage->data[npage->slot[0]]))->kval, ritem->klen);
+
+    e = BfM_SetDirty(root, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_FreeTrain(&newPid, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_FreeTrain(&nextPid, PAGE_BUF);
+    if (e < 0) ERR( e );
 
     return(eNOERROR);
     
