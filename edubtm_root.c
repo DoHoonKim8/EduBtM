@@ -79,8 +79,56 @@ Four edubtm_root_insert(
     BtreeLeaf *nextPage;	/* pointer to a buffer holding next page of root */
     btm_InternalEntry *entry;	/* an internal entry */
     Boolean   isTmp;
+    Two       len;
 
+    e = btm_AllocPage(catObjForFile, root, &newPid);
+    if (e < 0) ERR( e );
 
+    e = BfM_GetTrain(root, (char**)&rootPage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_GetNewTrain(&newPid, (char**)&newPage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    memcpy(newPage, rootPage, sizeof(rootPage));
+
+    e = edubtm_InitInternal(root, TRUE, isTmp);
+    if (e < 0) ERR( e );
+
+    rootPage->bi.slot[0] = 0;
+
+    entry = (btm_InternalEntry*)rootPage->bi.data;
+    entry->klen = item->klen;
+    entry->spid = item->spid;
+    memcpy(entry->kval, item->kval, item->klen);
+
+    rootPage->bi.hdr.p0 = newPid.pageNo;
+
+    nextPid.volNo = root->volNo;
+    nextPid.pageNo = entry->spid;
+
+    if (newPage->any.hdr.type & LEAF) {
+        e = BfM_GetTrain(&nextPage, (char**)&nextPage, PAGE_BUF);
+        if (e < 0) ERR( e );
+
+        nextPage->hdr.prevPage = newPid.pageNo;
+        newPage->bl.hdr.nextPage = nextPid.pageNo;
+
+        e = BfM_FreeTrain(&nextPage, PAGE_BUF);
+        if (e < 0) ERR( e );
+    }
+
+    e = BfM_SetDirty(root, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_SetDirty(&newPid, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_FreeTrain(root, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = BfM_FreeTrain(&newPid, PAGE_BUF);
+    if (e < 0) ERR( e );
     
     return(eNOERROR);
     
