@@ -88,6 +88,39 @@ Boolean edubtm_BinarySearchInternal(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    low = 0;
+    high = ipage->hdr.nSlots - 1;
+    mid = (low + high) / 2;
+
+    while (low < high) {
+        entry = (btm_InternalEntry*)&(ipage->data[ipage->slot[-mid]]);
+        cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+
+        if (cmp == EQUAL) {
+            *idx = mid;
+            return TRUE;
+        } else if (cmp == GREATER) {
+            low = mid;
+        } else if (cmp == LESS) {
+            high = mid;
+        }
+        mid = (low + high) / 2;
+        continue;
+    }
+
+    entry = (btm_InternalEntry*)&(ipage->data[ipage->slot[-mid]]);
+    cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+
+    if (cmp == GREATER) {
+        *idx = mid;
+        return FALSE;
+    } else if (cmp == LESS) {
+        *idx = mid - 1;
+        return FALSE;
+    } else if (cmp == EQUAL) {
+        *idx = mid;
+        return TRUE;
+    }
     
 } /* edubtm_BinarySearchInternal() */
 
@@ -134,6 +167,41 @@ Boolean edubtm_BinarySearchLeaf(
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
+
+    while (low < high) {
+        entry = (btm_LeafEntry*)&(lpage->data[lpage->slot[-mid]]);
+        cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+
+        if (cmp == EQUAL) {
+            *idx = mid;
+            return TRUE;
+        } else if (cmp == GREATER) {
+            low = mid;
+        } else if (cmp == LESS) {
+            high = mid;
+        }
+        mid = (low + high) / 2;
+        continue;
+    }
+
+    if (mid == 0) {
+        *idx = -1;
+        return FALSE;
+    }
+
+    entry = (btm_LeafEntry*)&(lpage->data[lpage->slot[-mid]]);
+    cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+
+    if (cmp == GREATER) {
+        *idx = mid;
+        return FALSE;
+    } else if (cmp == LESS) {
+        *idx = mid - 1;
+        return FALSE;
+    } else if (cmp == EQUAL) {
+        *idx = mid;
+        return TRUE;
+    }    
 
     
 } /* edubtm_BinarySearchLeaf() */
