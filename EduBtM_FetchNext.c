@@ -107,6 +107,8 @@ Four EduBtM_FetchNext(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    e = edubtm_FetchNext(kdesc, kval, compOp, current, next);
+    if (e < 0) ERR( e );
     
     return(eNOERROR);
     
@@ -148,7 +150,8 @@ Four edubtm_FetchNext(
     ObjectID 		*oidArray;	/* array of ObjectIDs */
     BtreeLeaf 		*apage;		/* pointer to a buffer holding a leaf page */
     BtreeOverflow 	*opage;		/* pointer to a buffer holding an overflow page */
-    btm_LeafEntry 	*entry;		/* pointer to a leaf entry */    
+    btm_LeafEntry 	*entry;		/* pointer to a leaf entry */
+    Two             slotNo;
     
     
     /* Error check whether using not supported functionality by EduBtM */
@@ -159,6 +162,119 @@ Four edubtm_FetchNext(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    e = BfM_GetTrain(&current->leaf, (char**)&apage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    if (compOp == SM_EQ) {
+        next->flag = CURSOR_INVALID;
+        e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
+        if(e < 0) ERR( e );
+        return(eNOERROR);
+    }
+
+    if (compOp == SM_LT || compOp == SM_LE || compOp == SM_EOF) {
+        if (current->slotNo == apage->hdr.nSlots - 1) {
+            leaf.pageNo = apage->hdr.nextPage;
+            leaf.volNo = apage->hdr.pid.volNo;
+
+            e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+
+            if (leaf.pageNo == NIL) {
+                next->flag = CURSOR_EOS;
+                return(eNOERROR);
+            }
+
+            e = BfM_GetTrain(&leaf, (char**)&apage, PAGE_BUF);
+            if (e < 0) ERR( e );
+
+            slotNo = 0;
+        } else {
+            slotNo = current->slotNo + 1;
+            leaf = current->leaf;
+        }
+    }
+
+    if (compOp == SM_GT || compOp == SM_GE || compOp == SM_BOF) {
+        if (current->slotNo == 0) {
+            leaf.pageNo = apage->hdr.prevPage;
+            leaf.volNo = apage->hdr.pid.volNo;
+
+            e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+
+            if (leaf.pageNo == NIL) {
+                next->flag = CURSOR_EOS;
+                return(eNOERROR);
+            } 
+
+            e = BfM_GetTrain(&leaf, (char**)&apage, PAGE_BUF);
+            if (e < 0) ERR( e );
+
+            slotNo = apage->hdr.nSlots - 1;
+        } else {
+            slotNo = current->slotNo - 1;
+            leaf = current->leaf;
+        }
+    }
+
+    entry = (btm_LeafEntry*)&apage->data[apage->slot[-slotNo]];
+    next->flag = CURSOR_ON;
+    next->key.len = entry->klen;
+    memcpy(next->key.val, entry->kval, entry->klen);
+    next->leaf = leaf;
+    alignedKlen = ALIGNED_LENGTH(entry->klen);
+    next->oid = *(ObjectID*)&entry->kval[alignedKlen];
+    next->slotNo = slotNo;
+
+    cmp = edubtm_KeyCompare(kdesc, &next->key, kval);
+    if (compOp == SM_EQ) {
+        if (cmp != EQUAL) {
+            next->flag = CURSOR_EOS;
+            e = BfM_FreeTrain(&leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+            return(eNOERROR);
+        }
+    }
+
+    if (compOp == SM_LT) {
+        if (cmp != LESS) {
+            next->flag = CURSOR_EOS;
+            e = BfM_FreeTrain(&leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+            return(eNOERROR);
+        }
+    }
+
+    if (compOp == SM_LE) {
+        if (cmp != LESS && cmp != EQUAL) {
+            next->flag = CURSOR_EOS;
+            e = BfM_FreeTrain(&leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+            return(eNOERROR);
+        }
+    }
+
+    if (compOp == SM_GT) {
+        if (cmp != GREATER) {
+            next->flag = CURSOR_EOS;
+            e = BfM_FreeTrain(&leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+            return(eNOERROR);
+        }
+    }
+
+    if (compOp == SM_GE) {
+        if (cmp != GREATER && cmp != EQUAL) {
+            next->flag = CURSOR_EOS;
+            e = BfM_FreeTrain(&leaf, PAGE_BUF);
+            if (e < 0) ERR( e );
+            return(eNOERROR);
+        }
+    }
+
+    e = BfM_FreeTrain(&leaf, PAGE_BUF);
+    if (e < 0) ERR( e );
     
     return(eNOERROR);
     

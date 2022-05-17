@@ -92,7 +92,21 @@ Four EduBtM_Fetch(
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
-    
+
+    if (startCompOp == SM_BOF) {
+        e = edubtm_FirstObject(root, kdesc, stopKval, stopCompOp, cursor);
+        if (e < 0) ERR( e );
+    }
+
+    if (startCompOp == SM_EOF) {
+        e = edubtm_LastObject(root, kdesc, stopKval, stopCompOp, cursor);
+        if (e < 0) ERR( e );
+    }
+
+    if (startCompOp != SM_BOF && startCompOp != SM_EOF) {
+        e = edubtm_Fetch(root, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
+        if (e < 0) ERR( e );
+    } 
 
     return(eNOERROR);
 
@@ -158,8 +172,218 @@ Four edubtm_Fetch(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    e = BfM_GetTrain(root, (char**)&apage, PAGE_BUF);
+    if (e < 0) ERR( e );
 
-    return(eNOERROR);
+    if (apage->any.hdr.type & INTERNAL) {
+        found = edubtm_BinarySearchInternal(apage, kdesc, startKval, &idx);
+        
+        if (idx == -1) {
+            nextPid.pageNo = apage->bi.hdr.p0;
+            nextPid.volNo = root->volNo;
+        } else {
+            iEntryOffset = apage->bi.slot[-idx];
+            iEntry = (btm_InternalEntry*)&apage->bi.data[iEntryOffset];
+
+            nextPid.pageNo = iEntry->spid;
+            nextPid.volNo = root->volNo;
+        }
+        e = edubtm_Fetch(&nextPid, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
+        if (e < 0) ERR( e );
+
+        e = BfM_FreeTrain(root, PAGE_BUF);
+        if (e < 0) ERR( e );
+
+        return(eNOERROR);
+    }
+
+    if (apage->any.hdr.type & LEAF) {
+        found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
+        leafPid = root;
+        
+        if (startCompOp == SM_EQ) {
+            if (found) {
+                slotNo = idx;
+            } else {
+                cursor->flag = CURSOR_EOS;
+                e = BfM_FreeTrain(root, PAGE_BUF);
+                if (e < 0) ERR( e );
+                return(eNOERROR);
+            }
+        }
+
+        if (startCompOp == SM_LT) {
+            if (found) {
+                if (idx == 0) {
+                    prevPid.volNo = root->volNo;
+                    prevPid.pageNo = apage->bl.hdr.prevPage;
+
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR(e);
+
+                    if (prevPid.pageNo == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                        return(eNOERROR);
+                    }
+
+                    e = BfM_GetTrain(&prevPid, &apage, PAGE_BUF);
+                    if(e < 0) ERR( e );
+
+                    slotNo = apage->bl.hdr.nSlots - 1;
+                    leafPid = &prevPid;
+                } else {
+                    slotNo = idx - 1;
+                }
+            } else {
+                if (idx != -1) {
+                    slotNo = idx;
+                } else{
+                    cursor->flag = CURSOR_EOS;
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR( e );
+                    return(eNOERROR);
+                }
+            }
+        }
+
+        if (startCompOp == SM_LE) {
+            if (found) {
+                slotNo = idx;
+            } else {
+                if (idx != -1) {
+                    slotNo = idx;
+                } else {
+                    cursor->flag = CURSOR_EOS;
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR( e );
+                    return(eNOERROR);
+                }
+            }
+        }
+
+        if (startCompOp == SM_GT) {
+            if (found) {
+                if (idx == apage->bl.hdr.nSlots - 1) {
+                    nextPid.pageNo = apage->bl.hdr.nextPage;
+                    nextPid.volNo = root->volNo;
+
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    if (nextPid.pageNo == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                        return(eNOERROR);
+                    }
+
+                    e = BfM_GetTrain(&nextPid, (char**)&apage, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    slotNo = 0;
+                    leafPid = &nextPid;
+                } else {
+                    slotNo = idx + 1;
+                }
+            } else {
+                if (idx == apage->bl.hdr.nSlots - 1) {
+                    nextPid.volNo = root->volNo;
+                    nextPid.pageNo = apage->bl.hdr.nextPage;
+
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    if (nextPid.pageNo == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                        return(eNOERROR);
+                    } 
+
+                    e = BfM_GetTrain(&nextPid, &apage, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    idx = 0;
+                    leafPid = &nextPid;
+                } else {
+                    slotNo = idx + 1;
+                }
+            }
+        }
+
+        if (startCompOp == SM_GE) {
+            if (found) {
+                slotNo = idx;
+            } else {
+                if (idx == apage->bl.hdr.nSlots - 1) {
+                    nextPid.volNo = root->volNo;
+                    nextPid.pageNo = apage->bl.hdr.nextPage;
+
+                    e = BfM_FreeTrain(root, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    if (nextPid.pageNo == NIL) {
+                        cursor->flag = CURSOR_EOS;
+                        return(eNOERROR);
+                    }
+
+                    e = BfM_GetTrain(&nextPid, &apage, PAGE_BUF);
+                    if (e < 0) ERR( e );
+
+                    idx = 0;
+                    leafPid = &nextPid;
+                } else {
+                    slotNo = idx + 1;
+                }
+            }
+        }
+
+        lEntryOffset = apage->bl.slot[-slotNo];
+        lEntry = (btm_LeafEntry*)&apage->bl.data[lEntryOffset];
+        alignedKlen = ALIGNED_LENGTH(lEntry->klen);
+
+        cursor->slotNo = slotNo;
+        cursor->leaf = *leafPid;
+        cursor->key.len = lEntry->klen;
+        memcpy(cursor->key.val, lEntry->kval, lEntry->klen);
+        cursor->flag = CURSOR_ON;
+        cursor->oid = *(ObjectID*)&lEntry->kval[alignedKlen];
+
+        if (stopCompOp != SM_EOF && stopCompOp != SM_BOF) {
+            cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
+
+            if (stopCompOp == SM_EQ) {
+                if (cmp != EQUAL) {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+
+            if (stopCompOp == SM_LT) {
+                if (cmp != LESS) {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+
+            if (stopCompOp == SM_LE) {
+                if (cmp != LESS && cmp != EQUAL) {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+
+            if (stopCompOp == SM_GT) {
+                if (cmp != GREATER) {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+
+            if (stopCompOp == SM_GE) {
+                if (cmp != GREATER && cmp != EQUAL) {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+        }
+
+        e = BfM_FreeTrain(leafPid, PAGE_BUF);
+        if (e < 0) ERR( e );
+
+        return(eNOERROR);
+    } 
     
 } /* edubtm_Fetch() */
 

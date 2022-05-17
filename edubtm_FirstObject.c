@@ -89,8 +89,39 @@ Four edubtm_FirstObject(
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
-    
 
+    curPid.pageNo = root->pageNo;
+    curPid.volNo = root->volNo;
+    
+    e = BfM_GetTrain(&curPid, (char**)&apage, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    while (1) {
+        if (apage->any.hdr.type & LEAF) break;
+        child.pageNo = apage->bi.hdr.p0;
+        child.pageNo = root->volNo;
+        e = BfM_FreeTrain(&curPid, PAGE_BUF);
+        if (e < 0) ERR( e );
+
+        e = BfM_GetTrain(&child, (char**)&apage, PAGE_BUF);
+        if (e < 0) ERR( e );
+
+        curPid = child;
+    }
+
+    lEntry = (btm_LeafEntry*)&(apage->bl.data[apage->bl.slot[0]]);
+    alignedKlen = ALIGNED_LENGTH(lEntry->klen);
+
+    cursor->flag = CURSOR_ON;
+    cursor->key.len = lEntry->klen;
+    memcpy(cursor->key.val, lEntry->kval, lEntry->klen);
+    cursor->leaf = curPid;
+    cursor->slotNo = 0;
+    cursor->oid = *(ObjectID*)&(lEntry->kval[alignedKlen]);
+
+    e = BfM_FreeTrain(&curPid, PAGE_BUF);
+    if (e < 0) ERR( e );
+    
     return(eNOERROR);
     
 } /* edubtm_FirstObject() */
