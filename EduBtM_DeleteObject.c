@@ -103,12 +103,27 @@ Four EduBtM_DeleteObject(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
+    if (e < 0) ERR( e );
 
-	/* Delete following 3 lines before implement this function */
-	printf("Implementation of delete operation is optional (not compulsory),\n");
-	printf("and delete operation has not been implemented yet.\n");
-	return(eNOTSUPPORTED_EDUBTM);
+    GET_PTR_TO_CATENTRY_FOR_BTREE(catObjForFile, catPage, catEntry);
+    MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
 
+    e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
+    if (e < 0) ERR( e );
+
+    e = edubtm_Delete(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
+    if (e < 0) ERR( e );
+
+    if (lf) {
+        e = btm_root_delete(&pFid, root, dlPool, dlHead);
+        if (e < 0) ERR( e );
+    }
+
+    if (lh) {
+        e = edubtm_root_insert(catObjForFile, root, &item);
+        if (e < 0) ERR( e );
+    }
     
     return(eNOERROR);
     
