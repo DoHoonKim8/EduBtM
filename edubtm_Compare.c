@@ -92,31 +92,41 @@ Four edubtm_KeyCompare(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-    kpartSize = 0;
-    for (i = 0; i < kdesc->nparts; i++) {
-        if (kdesc->kpart[i].type == SM_INT) {
-            strncpy(left, &key1->val[kpartSize], SM_INT_SIZE);
-            strncpy(right, &key2->val[kpartSize], SM_INT_SIZE);
-            i1 = (Two_Invariable)left[0];
-            i2 = (Two_Invariable)right[0];
-            if (i1 == i2) return EQUAL;
-            else if (i1 > i2) return GREATER;
-            else return LESS;
 
-            kpartSize += SM_INT_SIZE;
-        }
-        if (kdesc->kpart[i].type == SM_VARSTRING) {
-            kpartSize += sizeof(Two);
-            strncpy(left, &key1->val[kpartSize], kdesc->kpart[i].length);
-            strncpy(right, &key2->val[kpartSize], kdesc->kpart[i].length);
-            if (strcmp(left, right) == 0) return EQUAL;
-            else if (strcmp(left, right) > 0) return GREATER;
-            else return LESS;
+    if (kdesc->kpart[0].type == SM_INT) {
+        i1 = *(int*)key1->val;
+        i2 = *(int*)key2->val;
 
-            kpartSize += kdesc->kpart[i].length;
+        if (i1 > i2){
+            return GREATER;
+        } else if(i1 < i2){
+            return LESS;
+        } else if(i1 == i2){
+            return EQUAL;
         }
     }
-        
+    
+    if (kdesc->kpart[0].type == SM_VARSTRING) {
+        len1 = key1->len;
+        len2 = key2->len;
+
+        for (i = 2; i < MIN(len1, len2); i++) {
+            if (key1->val[i] > key2->val[i]) {
+                return GREATER;
+            } else if (key1->val[i] < key2->val[i]) {
+                return LESS;
+            } else if (key1->val[i] == 0 && key2->val[i] == 0) {
+                return EQUAL;
+            }
+        }
+        if (len1 > len2) {
+            return GREAT;
+        } else if (len1 < len2) {
+            return LESS;
+        } else if (len1 == len2) {
+            return EQUAL;
+        }
+    }
     return(EQUAL);
     
 }   /* edubtm_KeyCompare() */

@@ -111,6 +111,7 @@ Four edubtm_Insert(
 
     /* Error check whether using not supported functionality by EduBtM */
     int i;
+    lh = lf = FALSE;
     for(i=0; i<kdesc->nparts; i++)
     {
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
@@ -121,31 +122,33 @@ Four edubtm_Insert(
     if (e < 0) ERR( e );
 
     if (apage->any.hdr.type & INTERNAL) {
-        e = edubtm_BinarySearchInternal(apage, kdesc, kval, &idx);
-        if (e < 0) ERRB1(e, root, PAGE_BUF);
+        edubtm_BinarySearchInternal(apage, kdesc, kval, &idx);
 
-
-
-        iEntryOffset = apage->bi.slot[-idx];
-        iEntry = (btm_InternalEntry*)&(apage->bi.data[iEntryOffset]);
-        newPid.pageNo = iEntry->spid;
-        newPid.volNo = root->volNo;
+        if (idx == -1) {
+            newPid.pageNo = apage->bi.hdr.p0;
+            newPid.volNo = apage->bi.hdr.pid.volNo;
+        } else {
+            iEntryOffset = apage->bi.slot[-idx];
+            iEntry = (btm_InternalEntry*)&(apage->bi.data[iEntryOffset]);
+            newPid.pageNo = iEntry->spid;
+            newPid.volNo = root->volNo;
+        }
         e = edubtm_Insert(catObjForFile, &newPid, kdesc, kval, oid, &lf, &lh, &litem, dlPool, dlHead);
-        if (e < 0) ERRB1(e, root, PAGE_BUF);
+        if (e < 0) ERR( e );
 
-        if (lh) {
+        if (lh == TRUE) {
             tKey.len = litem.klen;
             memcpy(tKey.val, litem.kval, litem.klen);
-            e = edubtm_BinarySearchInternal(apage, kdesc, &tKey, &idx);
-            if (e < 0) ERRB1(e, root, PAGE_BUF);
+            edubtm_BinarySearchInternal(apage, kdesc, &tKey, &idx);
+            
             e = edubtm_InsertInternal(catObjForFile, root, &litem, idx, h, item);
             if (e < 0) ERRB1(e, root, PAGE_BUF);
         }
-    }
-
-    if (apage->any.hdr.type & LEAF) {
+    } else if (apage->any.hdr.type & LEAF) {
         e = edubtm_InsertLeaf(catObjForFile, root, apage, kdesc, kval, oid, f, h, item);
         if (e < 0) ERR( e );
+    } else {
+        ERR(eBADBTREEPAGE_BTM);
     }
 
     e = BfM_SetDirty(root, PAGE_BUF);
@@ -245,14 +248,15 @@ Four edubtm_InsertLeaf(
         for (i = page->hdr.nSlots - 1; i > idx; i--) {
             page->slot[-(i + 1)] = page->slot[-i];
         }
+        page->slot[-(idx + 1)] = page->hdr.free;
+
         entryOffset = page->hdr.free;
         entry = (btm_LeafEntry*)&page->data[entryOffset];
 
         entry->klen = kval->len;
         entry->nObjects = 1;
         memcpy(entry->kval, kval->val, kval->len);
-
-        page->slot[-(idx + 1)] = page->hdr.free;
+        *(ObjectID*)&entry->kval[alignedKlen] = *oid;
 
         page->hdr.free += entryLen;
         page->hdr.nSlots++;
@@ -311,21 +315,24 @@ Four edubtm_InsertInternal(
     if (BI_FREE(page) < entryLen + sizeof(Two)) {
         e = edubtm_SplitInternal(catObjForFile, page, high, item, ritem);
         if (e < 0) ERR( e );
+
+        *h = TRUE;
     } else {
         if (BI_CFREE(page) < entryLen + sizeof(Two)) {
             edubtm_CompactInternalPage(page, NIL);
         }
-        entryOffset = page->hdr.free;
-        entry = (btm_InternalEntry*)&page->data[entryOffset];
-
-        entry->spid = item->spid;
-        entry->klen = item->klen;
-        memcpy(entry->kval, item->kval, item->klen);
 
         for (i = page->hdr.nSlots - 1; i > high; i--) {
             page->slot[-(i + 1)] = page->slot[-i];
         }
         page->slot[-(high + 1)] = entryOffset;
+        
+        entryOffset = page->hdr.free;
+        entry = (btm_InternalEntry*)&page->data[entryOffset];
+
+        entry->spid = item->spid;
+        entry->klen = item->klen;
+        memcpy(entry->kval, item->kval, item->klen); 
 
         page->hdr.free += entryLen;
         page->hdr.nSlots++;

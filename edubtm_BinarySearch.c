@@ -92,35 +92,24 @@ Boolean edubtm_BinarySearchInternal(
     high = ipage->hdr.nSlots - 1;
     mid = (low + high) / 2;
 
-    while (low < high) {
+    while (low <= high) {
         entry = (btm_InternalEntry*)&(ipage->data[ipage->slot[-mid]]);
-        cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+        cmp = edubtm_KeyCompare(kdesc, kval, &entry->klen);
 
         if (cmp == EQUAL) {
             *idx = mid;
             return TRUE;
         } else if (cmp == GREATER) {
-            low = mid;
+            low = mid + 1;
         } else if (cmp == LESS) {
-            high = mid;
+            high = mid - 1;
         }
         mid = (low + high) / 2;
-        continue;
     }
 
-    entry = (btm_InternalEntry*)&(ipage->data[ipage->slot[-mid]]);
-    cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
+    *idx = high;
 
-    if (cmp == GREATER) {
-        *idx = mid;
-        return FALSE;
-    } else if (cmp == LESS) {
-        *idx = mid - 1;
-        return FALSE;
-    } else if (cmp == EQUAL) {
-        *idx = mid;
-        return TRUE;
-    }
+    return FALSE;
     
 } /* edubtm_BinarySearchInternal() */
 
@@ -168,7 +157,11 @@ Boolean edubtm_BinarySearchLeaf(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-    while (low < high) {
+    low = 0;
+    high = lpage->hdr.nSlots - 1;
+    mid = (low + high) / 2;
+
+    while (low <= high) {
         entry = (btm_LeafEntry*)&(lpage->data[lpage->slot[-mid]]);
         cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
 
@@ -176,32 +169,14 @@ Boolean edubtm_BinarySearchLeaf(
             *idx = mid;
             return TRUE;
         } else if (cmp == GREATER) {
-            low = mid;
+            low = mid + 1;
         } else if (cmp == LESS) {
-            high = mid;
+            high = mid - 1;
         }
         mid = (low + high) / 2;
-        continue;
     }
 
-    if (mid == 0) {
-        *idx = -1;
-        return FALSE;
-    }
+    *idx = high;
 
-    entry = (btm_LeafEntry*)&(lpage->data[lpage->slot[-mid]]);
-    cmp = edubtm_KeyCompare(kdesc, kval, entry->kval);
-
-    if (cmp == GREATER) {
-        *idx = mid;
-        return FALSE;
-    } else if (cmp == LESS) {
-        *idx = mid - 1;
-        return FALSE;
-    } else if (cmp == EQUAL) {
-        *idx = mid;
-        return TRUE;
-    }    
-
-    
+    return FALSE;    
 } /* edubtm_BinarySearchLeaf() */

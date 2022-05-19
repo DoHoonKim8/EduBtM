@@ -228,14 +228,6 @@ Four edubtm_FetchNext(
     next->slotNo = slotNo;
 
     cmp = edubtm_KeyCompare(kdesc, &next->key, kval);
-    if (compOp == SM_EQ) {
-        if (cmp != EQUAL) {
-            next->flag = CURSOR_EOS;
-            e = BfM_FreeTrain(&leaf, PAGE_BUF);
-            if (e < 0) ERR( e );
-            return(eNOERROR);
-        }
-    }
 
     if (compOp == SM_LT) {
         if (cmp != LESS) {

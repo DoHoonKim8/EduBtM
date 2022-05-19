@@ -119,6 +119,21 @@ Four edubtm_FirstObject(
     cursor->slotNo = 0;
     cursor->oid = *(ObjectID*)&(lEntry->kval[alignedKlen]);
 
+    cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
+    if (cmp == EQUAL) {
+        cursor->flag = CURSOR_ON;
+
+        if (stopCompOp == SM_LT) {
+            cursor->flag = CURSOR_EOS;
+        }
+    }
+    else if (cmp == GREATER) {
+        cursor->flag = CURSOR_EOS;
+    }
+    else if (cmp == LESS) {
+        cursor->flag = CURSOR_ON;
+    }
+
     e = BfM_FreeTrain(&curPid, PAGE_BUF);
     if (e < 0) ERR( e );
     

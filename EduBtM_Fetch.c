@@ -195,9 +195,7 @@ Four edubtm_Fetch(
         if (e < 0) ERR( e );
 
         return(eNOERROR);
-    }
-
-    if (apage->any.hdr.type & LEAF) {
+    } else if (apage->any.hdr.type & LEAF) {
         found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
         leafPid = root;
         
@@ -383,7 +381,9 @@ Four edubtm_Fetch(
         if (e < 0) ERR( e );
 
         return(eNOERROR);
-    } 
+    } else {
+        ERR(eBADBTREEPAGE_BTM);
+    }
     
 } /* edubtm_Fetch() */
 
