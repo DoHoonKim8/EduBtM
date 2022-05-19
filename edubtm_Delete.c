@@ -251,12 +251,13 @@ Four edubtm_DeleteLeaf(
     }
 
     found = edubtm_BinarySearchLeaf(apage, kdesc, kval, &idx); 
-    if(found){
+    if (found) {
         lEntryOffset = apage->slot[-idx];
         lEntry = &apage->data[lEntryOffset];
 
         alignedKlen = ALIGNED_LENGTH(lEntry->klen);
         oidArray = &lEntry->kval[alignedKlen];
+        tOid = *oidArray;
         entryLen = sizeof(Two) + sizeof(Two) + alignedKlen + sizeof(ObjectID);
 
         if (btm_ObjectIdComp(oid, &tOid) == EQUAL) {

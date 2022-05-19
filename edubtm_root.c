@@ -101,18 +101,22 @@ Four edubtm_root_insert(
     entry->klen = item->klen;
     entry->spid = item->spid;
     memcpy(entry->kval, item->kval, item->klen);
-
+    
+    rootPage->bi.hdr.nSlots = 1;
+    rootPage->bi.hdr.free = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen);
     rootPage->bi.hdr.p0 = newPid.pageNo;
 
-    nextPid.volNo = root->volNo;
-    nextPid.pageNo = entry->spid;
-
     if (newPage->any.hdr.type & LEAF) {
+        nextPid.volNo = newPage->bl.hdr.pid.volNo;
+        nextPid.pageNo = newPage->bl.hdr.nextPage;
+        
         e = BfM_GetTrain(&nextPage, (char**)&nextPage, PAGE_BUF);
         if (e < 0) ERR( e );
 
         nextPage->hdr.prevPage = newPid.pageNo;
-        newPage->bl.hdr.nextPage = nextPid.pageNo;
+
+        e = BfM_SetDirty(&nextPid, PAGE_BUF);
+        if (e < 0) ERR( e );
 
         e = BfM_FreeTrain(&nextPage, PAGE_BUF);
         if (e < 0) ERR( e );

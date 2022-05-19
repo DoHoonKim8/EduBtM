@@ -72,7 +72,7 @@ void edubtm_CompactInternalPage(
     Two                 i;                      /* index variable */
     btm_InternalEntry   *entry;                 /* an entry in leaf page */
 
-    memcpy(apage, &tpage, PAGESIZE);
+    memcpy(&tpage, apage, PAGESIZE);
 
     apageDataOffset = 0;
     for (i = 0; i < tpage.hdr.nSlots; i++) {
@@ -91,7 +91,7 @@ void edubtm_CompactInternalPage(
         len = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + entry->klen);
 
         apage->slot[-slotNo] = apageDataOffset;
-        memcpy(apage->data[apageDataOffset], entry, len);
+        memcpy(&apage->data[apageDataOffset], entry, len);
 
         apageDataOffset += len;
     }
@@ -135,7 +135,7 @@ void edubtm_CompactLeafPage(
     btm_LeafEntry 	*entry;			/* an entry in leaf page */
     Two 		alignedKlen;		/* aligned length of the key length */
 
-    memcpy(apage, &tpage, PAGESIZE);
+    memcpy(&tpage, apage, PAGESIZE);
 
     apageDataOffset = 0;
     for (i = 0; i < tpage.hdr.nSlots; i++) {

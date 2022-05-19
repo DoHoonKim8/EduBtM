@@ -103,9 +103,7 @@ Four edubtm_SplitInternal(
     e = BfM_GetNewTrain(&newPid, (char**)&npage, PAGE_BUF);
     if (e < 0) ERR( e );
 
-    tpage->hdr.free = fpage->hdr.free;
-    tpage->hdr.nSlots = fpage->hdr.nSlots;
-    tpage->hdr.unused = fpage->hdr.unused;
+    memcpy(&tpage, fpage, PAGESIZE); 
 
     maxLoop = fpage->hdr.nSlots + 1;
     sum = 0;
@@ -173,12 +171,12 @@ Four edubtm_SplitInternal(
         memcpy(&tpage->data[tpage->hdr.free], fEntry, entryLen);
     }
 
-    memcpy(fpage, tpage, sizeof(*tpage));
+    memcpy(fpage, tpage, PAGESIZE);
 
     npage->hdr.free = nEntryOffset;
     npage->hdr.nSlots = k;
 
-    e = BfM_SetDirty(&fpage->hdr.pid, PAGE_BUF);
+    e = BfM_SetDirty(&newPid, PAGE_BUF);
     if (e < 0) ERR( e );
 
     e = BfM_FreeTrain(&newPid, PAGE_BUF);
@@ -256,9 +254,7 @@ Four edubtm_SplitLeaf(
     e = BfM_GetNewTrain(&newPid, (char**)&npage, PAGE_BUF);
     if (e < 0) ERR( e );
 
-    tpage.hdr.free = fpage->hdr.free;
-    tpage.hdr.nSlots = fpage->hdr.nSlots;
-    tpage.hdr.unused = fpage->hdr.unused;
+    memcpy(&tpage, fpage, PAGESIZE);
 
     maxLoop = fpage->hdr.nSlots + 1;
     sum = 0;
@@ -284,8 +280,10 @@ Four edubtm_SplitLeaf(
         sum += entryLen + sizeof(Two);
     }
 
-    if (fpage->hdr.type & ROOT) {
-        fpage->hdr.type ^= ROOT;
+    tpage.hdr.nSlots = j;    
+
+    if (tpage.hdr.type & ROOT) {
+        tpage.hdr.type ^= ROOT;
     }
 
     k = 0; // slot No. in `npage`
@@ -316,47 +314,53 @@ Four edubtm_SplitLeaf(
         if (BL_CFREE(&tpage) < itemEntryLen) {
             edubtm_CompactLeafPage(&tpage, NIL);
         }
+        tpage.slot[-(high + 1)] = tpage.hdr.free;
         itemEntry = &tpage.data[tpage.slot[-(high + 1)]];
         itemEntry->nObjects = 1;
         itemEntry->klen = item->klen;
         memcpy(itemEntry->kval, item->kval, item->klen);
         *(ObjectID*)&itemEntry->kval[ALIGNED_LENGTH(item->klen)] = item->oid;
 
-        tpage.slot[-(high + 1)] = tpage.hdr.free;
-
         tpage.hdr.free += itemEntryLen;
         tpage.hdr.nSlots++;
     }
 
-    memcpy(fpage, &tpage, sizeof(tpage));
-
-    npage->hdr.free = nEntryOffset;
-    npage->hdr.nSlots = k;
-
-    nextPid.volNo = newPid.volNo;
-    nextPid.pageNo = fpage->hdr.nextPage;
-
-    e = BfM_GetTrain(&nextPid, (char**)&mpage, PAGE_BUF);
-    if (e < 0) ERR( e );
-
-    npage->hdr.nextPage = fpage->hdr.nextPage;
-    npage->hdr.prevPage = mpage->hdr.prevPage;
+    memcpy(fpage, &tpage, PAGESIZE);
     
+    npage->hdr.prevPage = root->pageNo;
+    npage->hdr.nextPage = fpage->hdr.nextPage;
+
+    fpage->hdr.prevPage;
     fpage->hdr.nextPage = newPid.pageNo;
-    mpage->hdr.prevPage = newPid.pageNo;
 
-    ritem->klen = ((btm_LeafEntry*)&(npage->data[npage->slot[0]]))->klen;
+    if(npage->hdr.nextPage != NIL){
+        nextPid.pageNo = npage->hdr.nextPage;
+        nextPid.volNo = npage->hdr.pid.volNo;
+
+        e = BfM_GetTrain(&nextPid, &mpage, PAGE_BUF);
+        if(e<0) ERR(e);
+    
+        mpage->hdr.prevPage = newPid.pageNo;
+
+        e = BfM_SetDirty(&nextPid, PAGE_BUF);
+        if(e<0) ERR(e);
+
+        e = BfM_FreeTrain(&nextPid, PAGE_BUF);
+        if(e<0) ERR(e);
+
+    }
+
+    //return value
+    nEntry = &npage->data[npage->slot[0]]; //discriminator key : first slot of new page
     ritem->spid = newPid.pageNo;
-    memcpy(&ritem->kval, ((btm_LeafEntry*)&(npage->data[npage->slot[0]]))->kval, ritem->klen);
+    ritem->klen = nEntry->klen;
+    memcpy(ritem->kval, nEntry->kval, nEntry->klen);
 
-    e = BfM_SetDirty(root, PAGE_BUF);
-    if (e < 0) ERR( e );
+    e = BfM_SetDirty(&newPid, PAGE_BUF);
+    if(e<0) ERR(e);
 
     e = BfM_FreeTrain(&newPid, PAGE_BUF);
-    if (e < 0) ERR( e );
-
-    e = BfM_FreeTrain(&nextPid, PAGE_BUF);
-    if (e < 0) ERR( e );
+    if(e<0) ERR(e);
 
     return(eNOERROR);
     

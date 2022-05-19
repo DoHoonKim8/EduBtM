@@ -103,6 +103,9 @@ Four EduBtM_DeleteObject(
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
+    e = edubtm_Delete(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
+    if (e < 0) ERR( e );
+
     e = BfM_GetTrain((TrainID*)catObjForFile, (char**)&catPage, PAGE_BUF);
     if (e < 0) ERR( e );
 
@@ -110,10 +113,7 @@ Four EduBtM_DeleteObject(
     MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
 
     e = BfM_FreeTrain((TrainID*)catObjForFile, PAGE_BUF);
-    if (e < 0) ERR( e );
-
-    e = edubtm_Delete(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
-    if (e < 0) ERR( e );
+    if (e < 0) ERR( e ); 
 
     if (lf) {
         e = btm_root_delete(&pFid, root, dlPool, dlHead);

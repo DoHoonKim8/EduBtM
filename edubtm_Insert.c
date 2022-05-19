@@ -141,8 +141,8 @@ Four edubtm_Insert(
             memcpy(tKey.val, litem.kval, litem.klen);
             edubtm_BinarySearchInternal(apage, kdesc, &tKey, &idx);
             
-            e = edubtm_InsertInternal(catObjForFile, root, &litem, idx, h, item);
-            if (e < 0) ERRB1(e, root, PAGE_BUF);
+            e = edubtm_InsertInternal(catObjForFile, apage, &litem, idx, h, item);
+            if (e < 0) ERR( e );
         }
     } else if (apage->any.hdr.type & LEAF) {
         e = edubtm_InsertLeaf(catObjForFile, root, apage, kdesc, kval, oid, f, h, item);
@@ -325,14 +325,14 @@ Four edubtm_InsertInternal(
         for (i = page->hdr.nSlots - 1; i > high; i--) {
             page->slot[-(i + 1)] = page->slot[-i];
         }
-        page->slot[-(high + 1)] = entryOffset;
+        page->slot[-(high + 1)] = page->hdr.free;
         
         entryOffset = page->hdr.free;
         entry = (btm_InternalEntry*)&page->data[entryOffset];
 
         entry->spid = item->spid;
         entry->klen = item->klen;
-        memcpy(entry->kval, item->kval, item->klen); 
+        memcpy(entry->kval, item->kval, item->klen);
 
         page->hdr.free += entryLen;
         page->hdr.nSlots++;

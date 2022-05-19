@@ -72,7 +72,7 @@ Four edubtm_InitInternal(
     page->hdr.pid = *internal;
     SET_PAGE_TYPE(page, BTREE_PAGE_TYPE);
 
-    page->hdr.type |= INTERNAL;
+    page->hdr.type = INTERNAL;
     if (root) {
         page->hdr.type |= ROOT;
     }
@@ -83,7 +83,7 @@ Four edubtm_InitInternal(
     page->hdr.unused = 0;
 
     e = BfM_SetDirty(internal, PAGE_BUF);
-    if (e < 0) ERRB1(e, internal, PAGE_BUF);
+    if (e < 0) ERR( e );
 
     e = BfM_FreeTrain(internal, PAGE_BUF);
     if (e < 0) ERR( e );
@@ -124,8 +124,8 @@ Four edubtm_InitLeaf(
 
     page->hdr.pid = *leaf;
     SET_PAGE_TYPE(page, BTREE_PAGE_TYPE);
+    page->hdr.type = LEAF;
     if (root) page->hdr.type |= ROOT;
-    page->hdr.type |= LEAF;
 
     page->hdr.nSlots = 0;
     page->hdr.free = 0;
@@ -134,7 +134,7 @@ Four edubtm_InitLeaf(
     page->hdr.unused = 0;
 
     e = BfM_SetDirty(leaf, PAGE_BUF);
-    if (e < 0) ERRB1(e, leaf, PAGE_BUF);
+    if (e < 0) ERR( e );
 
     e = BfM_FreeTrain(leaf, PAGE_BUF);
     if (e < 0) ERR( e );
