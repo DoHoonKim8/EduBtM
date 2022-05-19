@@ -284,6 +284,10 @@ Four edubtm_SplitLeaf(
         sum += entryLen + sizeof(Two);
     }
 
+    if (fpage->hdr.type & ROOT) {
+        fpage->hdr.type ^= ROOT;
+    }
+
     k = 0; // slot No. in `npage`
     nEntryOffset = 0;
     for ( ; j + k < maxLoop; k++) {
@@ -296,6 +300,7 @@ Four edubtm_SplitLeaf(
 
             alignedKlen = ALIGNED_LENGTH(itemEntry->klen);
             entryLen = BTM_LEAFENTRY_FIXED + alignedKlen + sizeof(ObjectID);
+            *(ObjectID*)&itemEntry->kval[alignedKlen] = item->oid;
         } else {
             fEntry = (btm_LeafEntry*)&(fpage->data[fpage->slot[-i]]);
             alignedKlen = ALIGNED_LENGTH(fEntry->klen);
@@ -315,6 +320,7 @@ Four edubtm_SplitLeaf(
         itemEntry->nObjects = 1;
         itemEntry->klen = item->klen;
         memcpy(itemEntry->kval, item->kval, item->klen);
+        *(ObjectID*)&itemEntry->kval[ALIGNED_LENGTH(item->klen)] = item->oid;
 
         tpage.slot[-(high + 1)] = tpage.hdr.free;
 

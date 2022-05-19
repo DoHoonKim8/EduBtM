@@ -100,8 +100,7 @@ Four edubtm_LastObject(
     e = BfM_GetTrain(&curPid, (char**)&apage, PAGE_BUF);
     if (e < 0) ERR( e );
 
-    while (1) {
-        if (apage->any.hdr.type & LEAF) break;
+    while (apage->any.hdr.type & INTERNAL) {
         iEntryOffset = apage->bi.slot[-(apage->bi.hdr.nSlots - 1)];
         iEntry = (btm_InternalEntry*)&apage->bi.data[iEntryOffset];
 

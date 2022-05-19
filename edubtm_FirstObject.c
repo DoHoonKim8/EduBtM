@@ -96,8 +96,7 @@ Four edubtm_FirstObject(
     e = BfM_GetTrain(&curPid, (char**)&apage, PAGE_BUF);
     if (e < 0) ERR( e );
 
-    while (1) {
-        if (apage->any.hdr.type & LEAF) break;
+    while (apage->any.hdr.type & INTERNAL) {
         child.pageNo = apage->bi.hdr.p0;
         child.pageNo = root->volNo;
         e = BfM_FreeTrain(&curPid, PAGE_BUF);
