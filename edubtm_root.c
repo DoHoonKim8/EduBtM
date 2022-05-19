@@ -71,15 +71,72 @@ Four edubtm_root_insert(
     PageID       *root,		 /* IN root Page IDentifier */
     InternalItem *item)		 /* IN Internal item which will be the unique entry of the new root */
 {
-    Four      e;		/* error number */
+	Four      e;		/* error number */
     PageID    newPid;		/* newly allocated page */
     PageID    nextPid;		/* PageID of the next page of root if root is leaf */
     BtreePage *rootPage;	/* pointer to a buffer holding the root page */
     BtreePage *newPage;		/* pointer to a buffer holding the new page */
     BtreeLeaf *nextPage;	/* pointer to a buffer holding next page of root */
     btm_InternalEntry *entry;	/* an internal entry */
+    Two         entryLen;
     Boolean   isTmp;
 
+    e = btm_AllocPage(catObjForFile, root, &newPid);
+    if(e<0) ERR(e);
+
+    e = BfM_GetTrain(root, &rootPage, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    //copy new page into root page
+    e = BfM_GetNewTrain(&newPid, &newPage, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    memcpy(newPage, rootPage, PAGESIZE);
+    newPage->any.hdr.pid = newPid;
+
+    //initialize root page
+    e = edubtm_InitInternal(root, TRUE, FALSE);
+    if(e<0) ERR(e);
+
+    //new root only entry is (item->pid) page (the right side page of split)
+    rootPage->bi.slot[0] = 0;
+    entry = &rootPage->bi.data[rootPage->bi.slot[0]];
+    entryLen = (4 + ALIGNED_LENGTH(2 + item->klen)); //internal entry
+    memcpy(entry, item, entryLen);
+    rootPage->bi.hdr.nSlots = 1;
+    rootPage->bi.hdr.free = entryLen;
+    
+    //p0 : new page
+    rootPage->bi.hdr.p0 = newPid.pageNo;
+
+    //newPage <-> item page(rootPage.nextPage)
+    if(newPage->any.hdr.type & LEAF){ 
+        nextPid.volNo = newPage->bl.hdr.pid.volNo;
+        nextPid.pageNo = newPage->bl.hdr.nextPage;
+
+        e = BfM_GetTrain(&nextPid, &nextPage, PAGE_BUF);
+        if(e<0) ERR(e);
+
+        nextPage->hdr.prevPage = newPid.pageNo;
+        
+        e = BfM_SetDirty(&nextPid,PAGE_BUF);
+        if(e<0) ERR(e);
+
+        e = BfM_FreeTrain(&nextPid, PAGE_BUF);
+        if(e<0) ERR(e);
+    }
+
+    e = BfM_SetDirty(&newPid, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    e = BfM_FreeTrain(&newPid, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    e = BfM_SetDirty(root, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    e = BfM_FreeTrain(root, PAGE_BUF);
+    if(e<0) ERR(e);
 
     
     return(eNOERROR);

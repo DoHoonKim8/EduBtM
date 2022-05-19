@@ -70,8 +70,8 @@ Four EduBtM_InsertObject(
 {
     int i;
     Four e;			/* error number */
-    Boolean lh;			/* for spliting */
-    Boolean lf;			/* for merging */
+    Boolean lh = FALSE;			/* for spliting */
+    Boolean lf = FALSE;			/* for merging */
     InternalItem item;		/* Internal Item */
     SlottedPage *catPage;	/* buffer page containing the catalog object */
     sm_CatOverlayForBtree *catEntry; /* pointer to Btree file catalog information */
@@ -95,6 +95,14 @@ Four EduBtM_InsertObject(
     {
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
+    }
+
+    e = edubtm_Insert(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
+    if(e<0) ERR(e);
+    
+    if(lh){
+        e = edubtm_root_insert(catObjForFile, root, &item);
+        if(e<0) ERR(e);
     }
     
     

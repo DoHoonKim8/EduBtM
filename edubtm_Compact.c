@@ -72,7 +72,33 @@ void edubtm_CompactInternalPage(
     Two                 i;                      /* index variable */
     btm_InternalEntry   *entry;                 /* an entry in leaf page */
 
-    
+    memcpy(&tpage, apage, PAGESIZE);
+
+    len = 0;
+    apageDataOffset = 0;
+    for(i = 0; i < tpage.hdr.nSlots; i++){
+
+        if(i != slotNo){
+            entry = tpage.data + tpage.slot[-i];
+            len = 4 + ALIGNED_LENGTH(2 + entry->klen); //spid + ALIGN(klen + kval)
+            
+            memcpy(apage->data + apageDataOffset, entry, len);
+            apage->slot[-i] = apageDataOffset;
+
+            apageDataOffset += len;
+        }
+    }
+
+    if(slotNo != NIL){
+        entry = tpage.data + tpage.slot[-slotNo];
+        len = 4 + ALIGNED_LENGTH(2 + entry->klen);
+        memcpy(apage->data + apageDataOffset, entry, len);
+        apage->slot[-slotNo] = apageDataOffset;
+        apageDataOffset += len;
+    }
+
+    apage->hdr.free = apageDataOffset;
+    apage->hdr.unused = 0;
 
 } /* edubtm_CompactInternalPage() */
 
@@ -103,13 +129,40 @@ void edubtm_CompactLeafPage(
     BtreeLeaf 		*apage,			/* INOUT leaf page to compact */
     Two       		slotNo)			/* IN slot to go to the boundary of free space */
 {	
-    BtreeLeaf 		tpage;			/* temporay page used to save the given page */
+	BtreeLeaf 		tpage;			/* temporay page used to save the given page */
     Two                 apageDataOffset;        /* where the next object is to be moved */
     Two                 len;                    /* length of the leaf entry */
     Two                 i;                      /* index variable */
     btm_LeafEntry 	*entry;			/* an entry in leaf page */
     Two 		alignedKlen;		/* aligned length of the key length */
 
-    
+    memcpy(&tpage, apage, PAGESIZE);
+
+    len = 0;
+    apageDataOffset = 0;
+    for(i = 0; i < tpage.hdr.nSlots; i++){
+
+        if(i != slotNo){
+            entry = tpage.data + tpage.slot[-i];
+            len = 2 + 2 + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
+            //sizeof(nObjects) + sizeof(klen) + alignedKlen + sizeof(ObjectID)
+
+            memcpy(apage->data + apageDataOffset, entry, len);
+            apage->slot[-i] = apageDataOffset;
+
+            apageDataOffset += len;
+        }
+    }
+
+    if(slotNo != NIL){
+        entry = tpage.data + tpage.slot[-slotNo];
+        len = 2 + 2 + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
+        memcpy(apage->data + apageDataOffset, entry, len);
+        apage->slot[-slotNo] = apageDataOffset;
+        apageDataOffset += len;
+    }
+
+    apage->hdr.free = apageDataOffset;
+    apage->hdr.unused = 0;
 
 } /* edubtm_CompactLeafPage() */

@@ -69,7 +69,7 @@ Four edubtm_LastObject(
     Four     		stopCompOp,	/* IN comparison operator of stop condition */
     BtreeCursor 	*cursor)	/* OUT the last BtreeCursor to be returned */
 {
-    int			i;
+	int			i;
     Four 		e;		/* error number */
     Four 		cmp;		/* result of comparison */
     BtreePage 		*apage;		/* pointer to the buffer holding current page */
@@ -83,6 +83,7 @@ Four edubtm_LastObject(
     btm_LeafEntry 	*lEntry;	/* a leaf entry */
     btm_InternalEntry 	*iEntry;	/* an internal entry */
     Four 		alignedKlen;	/* aligned length of the key length */
+    ObjectID 		*oidArray;	/* array of ObjectIDs */
         
 
     if (root == NULL) ERR(eBADPAGE_BTM);
@@ -93,6 +94,57 @@ Four edubtm_LastObject(
         if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
+
+    e = BfM_GetTrain(root, &apage, PAGE_BUF);
+    if(e<0) ERR(e);
+
+    curPid = *root;
+
+    while(apage->any.hdr.type & INTERNAL){
+        iEntry = apage->bi.data + apage->bi.slot[-(apage->bi.hdr.nSlots - 1)];
+        child.volNo = curPid.volNo;
+        child.pageNo = iEntry->spid;
+        e = BfM_FreeTrain(&curPid, PAGE_BUF);
+        if(e<0) ERR(e);
+
+        curPid = child;
+
+        e = BfM_GetTrain(&curPid, &apage,  PAGE_BUF);
+        if(e<0) ERR(e);
+    }
+
+
+    lEntry = apage->bl.data + apage->bl.slot[-(apage->bl.hdr.nSlots - 1)];
+    alignedKlen = ALIGNED_LENGTH(lEntry->klen);
+    oidArray = &lEntry->kval[alignedKlen];
+
+
+    cursor->key.len = lEntry->klen;
+    memcpy(cursor->key.val, lEntry->kval, lEntry->klen);
+    cursor->slotNo = apage->bl.hdr.nSlots - 1;
+    cursor->leaf = curPid;
+    cursor->oid = *oidArray;
+
+
+    cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
+    if(cmp == EQUAL){
+        cursor->flag = CURSOR_ON;
+
+        if(stopCompOp == SM_GT){
+            cursor->flag = CURSOR_EOS;
+        }
+
+    }
+    else if(cmp == GREATER){
+        cursor->flag = CURSOR_ON;
+    }
+    else if(cmp == LESS){
+        cursor->flag = CURSOR_EOS;
+    }
+
+
+    e = BfM_FreeTrain(&curPid, PAGE_BUF);
+    if(e<0) ERR(e);
     
 
     return(eNOERROR);

@@ -60,10 +60,13 @@ Four EduBtM_DropIndex(
     Pool   *dlPool,		/* INOUT pool of the dealloc list elements */
     DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-    Four e;			/* for the error number */
+	Four e;			/* for the error number */
 
 
     /*@ Free all pages concerned with the root. */
+
+    e = edubtm_FreePages(pFid, rootPid, dlPool, dlHead);
+    if(e<0) ERR(e);
 
 	
     return(eNOERROR);
