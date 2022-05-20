@@ -24,7 +24,7 @@
 /******************************************************************************/
 /*
  * Module: edubtm_Compact.c
- * 
+ *
  * Description:
  *  Two functions edubtm_CompactInternalPage() and edubtm_CompactLeafPage() are
  *  used to compact the internal page and the leaf page, respectively.
@@ -34,12 +34,9 @@
  *  void edubtm_CompactLeafPage(BtreeLeaf*, Two)
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * edubtm_CompactInternalPage()
@@ -63,25 +60,27 @@
  *  The leaf page is reorganized to compact the space.
  */
 void edubtm_CompactInternalPage(
-    BtreeInternal       *apage,                 /* INOUT internal page to compact */
-    Two                 slotNo)                 /* IN slot to go to the boundary of free space */
+    BtreeInternal *apage, /* INOUT internal page to compact */
+    Two slotNo)           /* IN slot to go to the boundary of free space */
 {
-    BtreeInternal       tpage;                  /* temporay page used to save the given page */
-    Two                 apageDataOffset;        /* where the next object is to be moved */
-    Two                 len;                    /* length of the leaf entry */
-    Two                 i;                      /* index variable */
-    btm_InternalEntry   *entry;                 /* an entry in leaf page */
+    BtreeInternal tpage;      /* temporay page used to save the given page */
+    Two apageDataOffset;      /* where the next object is to be moved */
+    Two len;                  /* length of the leaf entry */
+    Two i;                    /* index variable */
+    btm_InternalEntry *entry; /* an entry in leaf page */
 
     memcpy(&tpage, apage, PAGESIZE);
 
     len = 0;
     apageDataOffset = 0;
-    for(i = 0; i < tpage.hdr.nSlots; i++){
+    for (i = 0; i < tpage.hdr.nSlots; i++)
+    {
 
-        if(i != slotNo){
+        if (i != slotNo)
+        {
             entry = tpage.data + tpage.slot[-i];
-            len = 4 + ALIGNED_LENGTH(2 + entry->klen); //spid + ALIGN(klen + kval)
-            
+            len = 4 + ALIGNED_LENGTH(2 + entry->klen);
+
             memcpy(apage->data + apageDataOffset, entry, len);
             apage->slot[-i] = apageDataOffset;
 
@@ -89,7 +88,8 @@ void edubtm_CompactInternalPage(
         }
     }
 
-    if(slotNo != NIL){
+    if (slotNo != NIL)
+    {
         entry = tpage.data + tpage.slot[-slotNo];
         len = 4 + ALIGNED_LENGTH(2 + entry->klen);
         memcpy(apage->data + apageDataOffset, entry, len);
@@ -101,8 +101,6 @@ void edubtm_CompactInternalPage(
     apage->hdr.unused = 0;
 
 } /* edubtm_CompactInternalPage() */
-
-
 
 /*@================================
  * edubtm_CompactLeafPage()
@@ -118,7 +116,7 @@ void edubtm_CompactInternalPage(
  *  are located contiguously "in the middle", between the entries and the
  *  slot array. To compress out holes, entries must be moved toward the
  *  beginning of the page.
- *	
+ *
  * Return Values :
  *  None
  *
@@ -126,26 +124,27 @@ void edubtm_CompactInternalPage(
  *  The leaf page is reorganized to comact the space.
  */
 void edubtm_CompactLeafPage(
-    BtreeLeaf 		*apage,			/* INOUT leaf page to compact */
-    Two       		slotNo)			/* IN slot to go to the boundary of free space */
-{	
-	BtreeLeaf 		tpage;			/* temporay page used to save the given page */
-    Two                 apageDataOffset;        /* where the next object is to be moved */
-    Two                 len;                    /* length of the leaf entry */
-    Two                 i;                      /* index variable */
-    btm_LeafEntry 	*entry;			/* an entry in leaf page */
-    Two 		alignedKlen;		/* aligned length of the key length */
+    BtreeLeaf *apage, /* INOUT leaf page to compact */
+    Two slotNo)       /* IN slot to go to the boundary of free space */
+{
+    BtreeLeaf tpage;      /* temporay page used to save the given page */
+    Two apageDataOffset;  /* where the next object is to be moved */
+    Two len;              /* length of the leaf entry */
+    Two i;                /* index variable */
+    btm_LeafEntry *entry; /* an entry in leaf page */
+    Two alignedKlen;      /* aligned length of the key length */
 
     memcpy(&tpage, apage, PAGESIZE);
 
     len = 0;
     apageDataOffset = 0;
-    for(i = 0; i < tpage.hdr.nSlots; i++){
+    for (i = 0; i < tpage.hdr.nSlots; i++)
+    {
 
-        if(i != slotNo){
+        if (i != slotNo)
+        {
             entry = tpage.data + tpage.slot[-i];
             len = 2 + 2 + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
-            //sizeof(nObjects) + sizeof(klen) + alignedKlen + sizeof(ObjectID)
 
             memcpy(apage->data + apageDataOffset, entry, len);
             apage->slot[-i] = apageDataOffset;
@@ -154,7 +153,8 @@ void edubtm_CompactLeafPage(
         }
     }
 
-    if(slotNo != NIL){
+    if (slotNo != NIL)
+    {
         entry = tpage.data + tpage.slot[-slotNo];
         len = 2 + 2 + ALIGNED_LENGTH(entry->klen) + sizeof(ObjectID);
         memcpy(apage->data + apageDataOffset, entry, len);

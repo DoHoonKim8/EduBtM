@@ -26,19 +26,16 @@
  * Module: edubtm_FreePages.c
  *
  * Description :
- *  Free all pages which were related with the given page. 
+ *  Free all pages which were related with the given page.
  *
  * Exports:
  *  Four edubtm_FreePages(FileID*, PageID*, Pool*, DeallocListElem*)
  */
 
-
 #include "EduBtM_common.h"
 #include "Util.h"
 #include "BfM.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * edubtm_FreePages()
@@ -63,67 +60,69 @@
  *    some errors caused by function calls
  */
 Four edubtm_FreePages(
-    PhysicalFileID      *pFid,          /* IN FileID of the Btree file */
-    PageID              *curPid,        /* IN The PageID to be freed */
-    Pool                *dlPool,        /* INOUT pool of dealloc list elements */
-    DeallocListElem     *dlHead)        /* INOUT head of the dealloc list */
+    PhysicalFileID *pFid,    /* IN FileID of the Btree file */
+    PageID *curPid,          /* IN The PageID to be freed */
+    Pool *dlPool,            /* INOUT pool of dealloc list elements */
+    DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-	Four                e;              /* error number */
-    Two                 i;              /* index */
-    Two                 alignedKlen;    /* aligned length of the key length */
-    PageID              tPid;           /* a temporary PageID */
-    PageID              ovPid;          /* a temporary PageID of an overflow page */
-    BtreePage           *apage;         /* a page pointer */
-    BtreeOverflow       *opage;         /* page pointer to a buffer holding an overflow page */
-    Two                 iEntryOffset;   /* starting offset of an internal entry */
-    Two                 lEntryOffset;   /* starting offset of a leaf entry */
-    btm_InternalEntry   *iEntry;        /* an internal entry */
-    btm_LeafEntry       *lEntry;        /* a leaf entry */
-    DeallocListElem     *dlElem;        /* an element of dealloc list */
-    ObjectID            *oid;
+    Four e;                    /* error number */
+    Two i;                     /* index */
+    Two alignedKlen;           /* aligned length of the key length */
+    PageID tPid;               /* a temporary PageID */
+    PageID ovPid;              /* a temporary PageID of an overflow page */
+    BtreePage *apage;          /* a page pointer */
+    BtreeOverflow *opage;      /* page pointer to a buffer holding an overflow page */
+    Two iEntryOffset;          /* starting offset of an internal entry */
+    Two lEntryOffset;          /* starting offset of a leaf entry */
+    btm_InternalEntry *iEntry; /* an internal entry */
+    btm_LeafEntry *lEntry;     /* a leaf entry */
+    DeallocListElem *dlElem;   /* an element of dealloc list */
+    ObjectID *oid;
 
     e = BfM_GetTrain(curPid, &apage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    if(apage->any.hdr.type & INTERNAL) {
+    if (apage->any.hdr.type & INTERNAL)
+    {
         tPid.volNo = curPid->volNo;
         tPid.pageNo = apage->bi.hdr.p0;
         e = edubtm_FreePages(pFid, &tPid, dlPool, dlHead);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
-
-        for(i = 0; i < apage->bi.hdr.nSlots; i++){
+        for (i = 0; i < apage->bi.hdr.nSlots; i++)
+        {
             iEntryOffset = apage->bi.slot[-i];
             iEntry = &apage->bi.data[iEntryOffset];
-
 
             tPid.volNo = curPid->volNo;
             tPid.pageNo = iEntry->spid;
 
             e = edubtm_FreePages(pFid, &tPid, dlPool, dlHead);
-            if(e<0) ERR(e);
-
+            if (e < 0)
+                ERR(e);
         }
-
-
     }
 
     apage->any.hdr.type = FREEPAGE;
     e = BfM_SetDirty(curPid, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_FreeTrain(curPid, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = Util_getElementFromPool(dlPool, &dlElem);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     dlElem->type = DL_PAGE;
-    dlElem->elem.pid= *curPid;
+    dlElem->elem.pid = *curPid;
     dlElem->next = dlHead->next;
     dlHead->next = dlElem;
-    
-    
-    return(eNOERROR);
-    
-}   /* edubtm_FreePages() */
+
+    return (eNOERROR);
+
+} /* edubtm_FreePages() */

@@ -25,7 +25,7 @@
 /*
  * Module: edubtm_root.c
  *
- * Description : 
+ * Description :
  *  This file has two routines which are concerned with the changing the
  *  current root node. When an overflow or a underflow occurs in the root page
  *  the root node should be changed. But we don't change the root node to
@@ -36,14 +36,11 @@
  *  Four edubtm_root_insert(ObjectID*, PageID*, InternalItem*)
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "Util.h"
 #include "BfM.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * edubtm_root_insert()
@@ -67,78 +64,82 @@
  *    some errors caused by function calls
  */
 Four edubtm_root_insert(
-    ObjectID     *catObjForFile, /* IN catalog object of B+ tree file */
-    PageID       *root,		 /* IN root Page IDentifier */
-    InternalItem *item)		 /* IN Internal item which will be the unique entry of the new root */
+    ObjectID *catObjForFile, /* IN catalog object of B+ tree file */
+    PageID *root,            /* IN root Page IDentifier */
+    InternalItem *item)      /* IN Internal item which will be the unique entry of the new root */
 {
-	Four      e;		/* error number */
-    PageID    newPid;		/* newly allocated page */
-    PageID    nextPid;		/* PageID of the next page of root if root is leaf */
-    BtreePage *rootPage;	/* pointer to a buffer holding the root page */
-    BtreePage *newPage;		/* pointer to a buffer holding the new page */
-    BtreeLeaf *nextPage;	/* pointer to a buffer holding next page of root */
-    btm_InternalEntry *entry;	/* an internal entry */
-    Two         entryLen;
-    Boolean   isTmp;
+    Four e;                   /* error number */
+    PageID newPid;            /* newly allocated page */
+    PageID nextPid;           /* PageID of the next page of root if root is leaf */
+    BtreePage *rootPage;      /* pointer to a buffer holding the root page */
+    BtreePage *newPage;       /* pointer to a buffer holding the new page */
+    BtreeLeaf *nextPage;      /* pointer to a buffer holding next page of root */
+    btm_InternalEntry *entry; /* an internal entry */
+    Boolean isTmp;
 
     e = btm_AllocPage(catObjForFile, root, &newPid);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_GetTrain(root, &rootPage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    //copy new page into root page
     e = BfM_GetNewTrain(&newPid, &newPage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     memcpy(newPage, rootPage, PAGESIZE);
     newPage->any.hdr.pid = newPid;
 
-    //initialize root page
     e = edubtm_InitInternal(root, TRUE, FALSE);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    //new root only entry is (item->pid) page (the right side page of split)
     rootPage->bi.slot[0] = 0;
     entry = &rootPage->bi.data[rootPage->bi.slot[0]];
-    entryLen = (4 + ALIGNED_LENGTH(2 + item->klen)); //internal entry
-    memcpy(entry, item, entryLen);
+    memcpy(entry, item, (4 + ALIGNED_LENGTH(2 + item->klen)));
     rootPage->bi.hdr.nSlots = 1;
-    rootPage->bi.hdr.free = entryLen;
-    
-    //p0 : new page
+    rootPage->bi.hdr.free = (4 + ALIGNED_LENGTH(2 + item->klen));
+
     rootPage->bi.hdr.p0 = newPid.pageNo;
 
-    //newPage <-> item page(rootPage.nextPage)
-    if(newPage->any.hdr.type & LEAF){ 
+    if (newPage->any.hdr.type & LEAF)
+    {
         nextPid.volNo = newPage->bl.hdr.pid.volNo;
         nextPid.pageNo = newPage->bl.hdr.nextPage;
 
         e = BfM_GetTrain(&nextPid, &nextPage, PAGE_BUF);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
         nextPage->hdr.prevPage = newPid.pageNo;
-        
-        e = BfM_SetDirty(&nextPid,PAGE_BUF);
-        if(e<0) ERR(e);
+
+        e = BfM_SetDirty(&nextPid, PAGE_BUF);
+        if (e < 0)
+            ERR(e);
 
         e = BfM_FreeTrain(&nextPid, PAGE_BUF);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
 
     e = BfM_SetDirty(&newPid, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_FreeTrain(&newPid, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_SetDirty(root, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_FreeTrain(root, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    
-    return(eNOERROR);
-    
+    return (eNOERROR);
+
 } /* edubtm_root_insert() */

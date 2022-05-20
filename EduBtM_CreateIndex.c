@@ -22,35 +22,32 @@
 /*    without prior written permission of the copyright owner.                */
 /*                                                                            */
 /******************************************************************************/
-/* 
+/*
  * Module :	EduBtM_CreateIndex.c
  *
- * Description : 
- *  Create the new B+ tree Index. 
+ * Description :
+ *  Create the new B+ tree Index.
  *
  * Exports:
  *  Four EduBtM_CreateIndex(ObjectID*, PageID*)
  */
-
 
 #include "EduBtM_common.h"
 #include "EduBtM_Internal.h"
 #include "OM_Internal.h"
 #include "BfM.h"
 
-
-
 /*@================================
  * EduBtM_CreateIndex()
  *================================*/
-/* 
+/*
  * Function: Four  EduBtM_CreateIndex(ObjectID*, PageID*)
  *
- * Description : 
+ * Description :
  * (Following description is for original ODYSSEUS/COSMOS BtM.
  *  For ODYSSEUS/EduCOSMOS EduBtM, refer to the EduBtM project manual.)
  *
- *  Create the new B+ tree Index. 
+ *  Create the new B+ tree Index.
  *  We allocate the root page and initialize it.
  *
  * Returns :
@@ -58,36 +55,38 @@
  *    some errors caused by function calls
  *
  * Side effects:
- *  The parameter rootPid is filled with the new root page's PageID. 
+ *  The parameter rootPid is filled with the new root page's PageID.
  */
 Four EduBtM_CreateIndex(
-    ObjectID *catObjForFile,	/* IN catalog object of B+ tree file */
-    PageID *rootPid)		/* OUT root page of the newly created B+tree */
+    ObjectID *catObjForFile, /* IN catalog object of B+ tree file */
+    PageID *rootPid)         /* OUT root page of the newly created B+tree */
 {
-	Four e;			/* error number */
+    Four e; /* error number */
     Boolean isTmp;
-    SlottedPage *catPage;	/* buffer page containing the catalog object */
+    SlottedPage *catPage;            /* buffer page containing the catalog object */
     sm_CatOverlayForBtree *catEntry; /* pointer to Btree file catalog information */
-    PhysicalFileID pFid;	/* physical file ID */
+    PhysicalFileID pFid;             /* physical file ID */
 
-    
     e = BfM_GetTrain(catObjForFile, &catPage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     GET_PTR_TO_CATENTRY_FOR_BTREE(catObjForFile, catPage, catEntry);
 
     MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
 
     e = BfM_FreeTrain(catObjForFile, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = btm_AllocPage(catObjForFile, &pFid, rootPid);
-    if (e < 0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    e= edubtm_InitLeaf(rootPid, TRUE, FALSE);
-    if (e < 0) ERR(e);
+    e = edubtm_InitLeaf(rootPid, TRUE, FALSE);
+    if (e < 0)
+        ERR(e);
 
+    return (eNOERROR);
 
-    return(eNOERROR);
-    
 } /* EduBtM_CreateIndex() */

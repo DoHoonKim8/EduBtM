@@ -25,7 +25,7 @@
 /*
  * Module: edubtm_Insert.c
  *
- * Description : 
+ * Description :
  *  This function edubtm_Insert(...) recursively calls itself until the type
  *  of a root page becomes LEAF.  If the given root page is an internal,
  *  it recursively calls itself using a proper child.  If the result of
@@ -43,14 +43,11 @@
  *                          Two, Boolean*, InternalItem*)
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "BfM.h"
-#include "OM_Internal.h"	/* for SlottedPage containing catalog object */
+#include "OM_Internal.h" /* for SlottedPage containing catalog object */
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * edubtm_Insert()
@@ -71,7 +68,7 @@
  *  If there is not enough spage in the leaf, the page should be splitted.  The
  *  overflow page may be used or created by this routine. It is created when
  *  the size of the entry is greater than a third of a page.
- * 
+ *
  *  'h' is TRUE if the given root page is splitted and the entry item will be
  *  inserted into the parent page.  'f' is TRUE if the given page is not half
  *  full because of creating a new overflow page.
@@ -82,61 +79,66 @@
  *    some errors caused by function calls
  */
 Four edubtm_Insert(
-    ObjectID                    *catObjForFile,         /* IN catalog object of B+-tree file */
-    PageID                      *root,                  /* IN the root of a Btree */
-    KeyDesc                     *kdesc,                 /* IN Btree key descriptor */
-    KeyValue                    *kval,                  /* IN key value */
-    ObjectID                    *oid,                   /* IN ObjectID which will be inserted */
-    Boolean                     *f,                     /* OUT whether it is merged by creating a new overflow page */
-    Boolean                     *h,                     /* OUT whether it is splitted */
-    InternalItem                *item,                  /* OUT Internal Item which will be inserted */
-                                                        /*     into its parent when 'h' is TRUE */
-    Pool                        *dlPool,                /* INOUT pool of dealloc list */
-    DeallocListElem             *dlHead)                /* INOUT head of the dealloc list */
+    ObjectID *catObjForFile, /* IN catalog object of B+-tree file */
+    PageID *root,            /* IN the root of a Btree */
+    KeyDesc *kdesc,          /* IN Btree key descriptor */
+    KeyValue *kval,          /* IN key value */
+    ObjectID *oid,           /* IN ObjectID which will be inserted */
+    Boolean *f,              /* OUT whether it is merged by creating a new overflow page */
+    Boolean *h,              /* OUT whether it is splitted */
+    InternalItem *item,      /* OUT Internal Item which will be inserted */
+                             /*     into its parent when 'h' is TRUE */
+    Pool *dlPool,            /* INOUT pool of dealloc list */
+    DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-	Four                        e;                      /* error number */
-    Boolean                     lh = FALSE;                     /* local 'h' */
-    Boolean                     lf = FALSE;                     /* local 'f' */
-    Two                         idx;                    /* index for the given key value */
-    PageID                      newPid;                 /* a new PageID */
-    KeyValue                    tKey;                   /* a temporary key */
-    InternalItem                litem;                  /* a local internal item */
-    BtreePage                   *apage;                 /* a pointer to the root page */
-    btm_InternalEntry           *iEntry;                /* an internal entry */
-    Two                         iEntryOffset;           /* starting offset of an internal entry */
-    SlottedPage                 *catPage;               /* buffer page containing the catalog object */
-    sm_CatOverlayForBtree       *catEntry;              /* pointer to Btree file catalog information */
-    PhysicalFileID              pFid;                   /* B+-tree file's FileID */
-
+    Four e;                          /* error number */
+    Boolean lh = FALSE;              /* local 'h' */
+    Boolean lf = FALSE;              /* local 'f' */
+    Two idx;                         /* index for the given key value */
+    PageID newPid;                   /* a new PageID */
+    KeyValue tKey;                   /* a temporary key */
+    InternalItem litem;              /* a local internal item */
+    BtreePage *apage;                /* a pointer to the root page */
+    btm_InternalEntry *iEntry;       /* an internal entry */
+    Two iEntryOffset;                /* starting offset of an internal entry */
+    SlottedPage *catPage;            /* buffer page containing the catalog object */
+    sm_CatOverlayForBtree *catEntry; /* pointer to Btree file catalog information */
+    PhysicalFileID pFid;             /* B+-tree file's FileID */
 
     /* Error check whether using not supported functionality by EduBtM */
     int i;
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
     e = BfM_GetTrain(root, &apage, PAGE_BUF);
-    if(e<0) ERR(e);
-    
-    if(apage->any.hdr.type & LEAF){ //root is leaf
+    if (e < 0)
+        ERR(e);
+
+    if (apage->any.hdr.type & LEAF)
+    {
         e = edubtm_InsertLeaf(catObjForFile, root, apage, kdesc, kval, oid, f, h, item);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
         e = BfM_SetDirty(root, PAGE_BUF);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    else if(apage->any.hdr.type & INTERNAL) {
-        
+    else if (apage->any.hdr.type & INTERNAL)
+    {
+
         edubtm_BinarySearchInternal(apage, kdesc, kval, &idx);
 
-        if(idx == -1){ //key is smaller than any index entry key
-            newPid.volNo = root->volNo;
+        if (idx == -1)
+        {
             newPid.pageNo = apage->bi.hdr.p0;
-            
+            newPid.volNo = root->volNo;
         }
-        else{
+        else
+        {
             iEntryOffset = apage->bi.slot[-idx];
             iEntry = &apage->bi.data[iEntryOffset];
 
@@ -144,44 +146,36 @@ Four edubtm_Insert(
             newPid.pageNo = iEntry->spid;
         }
 
-        
-
         e = edubtm_Insert(catObjForFile, &newPid, kdesc, kval, oid, &lf, &lh, &litem, dlPool, dlHead);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
-        if(lh == TRUE){ // whether it is splitted
-            
+        if (lh)
+        {
             tKey.len = litem.klen;
             memcpy(tKey.val, litem.kval, litem.klen);
-            
             edubtm_BinarySearchInternal(apage, kdesc, &tKey, &idx);
-
-
             e = edubtm_InsertInternal(catObjForFile, apage, &litem, idx, h, item);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
             e = BfM_SetDirty(root, PAGE_BUF);
-            if(e<0) ERR(e);
-
+            if (e < 0)
+                ERR(e);
         }
-        
-
     }
-    else{
+    else
+    {
         ERR(eBADBTREEPAGE_BTM);
     }
 
     e = BfM_FreeTrain(root, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
+    return (eNOERROR);
 
-
-    
-    return(eNOERROR);
-    
-}   /* edubtm_Insert() */
-
-
+} /* edubtm_Insert() */
 
 /*@================================
  * edubtm_InsertLeaf()
@@ -209,104 +203,93 @@ Four edubtm_Insert(
  *  3) item : item to be inserted into the parent
  */
 Four edubtm_InsertLeaf(
-    ObjectID                    *catObjForFile, /* IN catalog object of B+-tree file */
-    PageID                      *pid,           /* IN PageID of Leag Page */
-    BtreeLeaf                   *page,          /* INOUT pointer to buffer page of Leaf page */
-    KeyDesc                     *kdesc,         /* IN Btree key descriptor */
-    KeyValue                    *kval,          /* IN key value */
-    ObjectID                    *oid,           /* IN ObjectID which will be inserted */
-    Boolean                     *f,             /* OUT whether it is merged by creating */
-                                                /*     a new overflow page */
-    Boolean                     *h,             /* OUT whether it is splitted */
-    InternalItem                *item)          /* OUT Internal Item which will be inserted */
-                                                /*     into its parent when 'h' is TRUE */
+    ObjectID *catObjForFile, /* IN catalog object of B+-tree file */
+    PageID *pid,             /* IN PageID of Leag Page */
+    BtreeLeaf *page,         /* INOUT pointer to buffer page of Leaf page */
+    KeyDesc *kdesc,          /* IN Btree key descriptor */
+    KeyValue *kval,          /* IN key value */
+    ObjectID *oid,           /* IN ObjectID which will be inserted */
+    Boolean *f,              /* OUT whether it is merged by creating */
+                             /*     a new overflow page */
+    Boolean *h,              /* OUT whether it is splitted */
+    InternalItem *item)      /* OUT Internal Item which will be inserted */
+                             /*     into its parent when 'h' is TRUE */
 {
-	Four                        e;              /* error number */
-    Two                         i;
-    Two                         idx;            /* index for the given key value */
-    LeafItem                    leaf;           /* a Leaf Item */
-    Boolean                     found;          /* search result */
-    btm_LeafEntry               *entry;         /* an entry in a leaf page */
-    Two                         entryOffset;    /* start position of an entry */
-    Two                         alignedKlen;    /* aligned length of the key length */
-    PageID                      ovPid;          /* PageID of an overflow page */
-    Two                         entryLen;       /* length of an entry */
-    ObjectID                    *oidArray;      /* an array of ObjectIDs */
-    Two                         oidArrayElemNo; /* an index for the ObjectID array */
-    Two                         neededSpace;
+    Four e; /* error number */
+    Two i;
+    Two idx;              /* index for the given key value */
+    LeafItem leaf;        /* a Leaf Item */
+    Boolean found;        /* search result */
+    btm_LeafEntry *entry; /* an entry in a leaf page */
+    Two entryOffset;      /* start position of an entry */
+    Two alignedKlen;      /* aligned length of the key length */
+    PageID ovPid;         /* PageID of an overflow page */
+    Two entryLen;         /* length of an entry */
+    ObjectID *oidArray;   /* an array of ObjectIDs */
+    Two oidArrayElemNo;   /* an index for the ObjectID array */
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-    
     /*@ Initially the flags are FALSE */
     *h = *f = FALSE;
 
-    
-    //we have to put the node in slot idx+1
-    found = edubtm_BinarySearchLeaf(page, kdesc, kval, &idx); 
-    if(found){ 
+    found = edubtm_BinarySearchLeaf(page, kdesc, kval, &idx);
+    if (found)
+    {
         ERR(eDUPLICATEDKEY_BTM);
-        
     }
-    else{
+    else
+    {
         alignedKlen = ALIGNED_LENGTH(kval->len);
 
-        entryLen = (2 + 2 + alignedKlen + sizeof(ObjectID)); 
-        //sizeof(nObjects) + sizeof(klen) + alignedKlen + sizeof(ObjectID)
-        neededSpace = entryLen + 2;
-        //sizeof(slot)
-        
-        if(neededSpace > BL_FREE(page)){ //page overflow
-            
+        entryLen = (2 + 2 + alignedKlen + sizeof(ObjectID));
+
+        if (entryLen + 2 > BL_FREE(page))
+        {
             leaf.klen = kval->len;
             leaf.nObjects = 1;
             memcpy(leaf.kval, kval->val, kval->len);
             leaf.oid = *oid;
             e = edubtm_SplitLeaf(catObjForFile, pid, page, idx, &leaf, item);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
             *h = TRUE;
-
         }
-        else{
-            if(neededSpace > BL_CFREE(page)){
-                edubtm_CompactLeafPage(page, NIL); //does CompactLeafPage change nSlots?
+        else
+        {
+            if (entryLen + 2 > BL_CFREE(page))
+            {
+                edubtm_CompactLeafPage(page, NIL);
             }
 
-            //we have to put the node in slot idx+1
-
-            for(i = page->hdr.nSlots - 1; idx + 1 <= i; i--){
-                page->slot[-(i+1)] = page->slot[-i];
+            for (i = page->hdr.nSlots - 1; idx + 1 <= i; i--)
+            {
+                page->slot[-(i + 1)] = page->slot[-i];
             }
-            page->slot[-(idx+1)] = page->hdr.free;
+            page->slot[-(idx + 1)] = page->hdr.free;
 
-            //kval has key, object ID sequentially
-            
             entryOffset = page->hdr.free;
             entry = &page->data[entryOffset];
 
             entry->nObjects = 1;
             entry->klen = kval->len;
-            memcpy(entry->kval, kval->val, entry->klen); //copied only key, not ObjectID
-            oidArray = &entry->kval[alignedKlen]; //only one oid, since eduBtm is always unique key (one key per btm_LeafEntry)
+            memcpy(entry->kval, kval->val, entry->klen);
+            oidArray = &entry->kval[alignedKlen];
             *oidArray = *oid;
 
             page->hdr.free += entryLen;
             page->hdr.nSlots += 1;
-
         }
     }
 
+    return (eNOERROR);
 
-    return(eNOERROR);
-    
 } /* edubtm_InsertLeaf() */
-
-
 
 /*@================================
  * edubtm_InsertInternal()
@@ -332,60 +315,54 @@ Four edubtm_InsertLeaf(
  *          if spliting occurs.
  */
 Four edubtm_InsertInternal(
-    ObjectID            *catObjForFile, /* IN catalog object of B+-tree file */
-    BtreeInternal       *page,          /* INOUT Page Pointer */
-    InternalItem        *item,          /* IN Iternal item which is inserted */
-    Two                 high,           /* IN index in the given page */
-    Boolean             *h,             /* OUT whether the given page is splitted */
-    InternalItem        *ritem)         /* OUT if the given page is splitted, the internal item may be returned by 'ritem'. */
+    ObjectID *catObjForFile, /* IN catalog object of B+-tree file */
+    BtreeInternal *page,     /* INOUT Page Pointer */
+    InternalItem *item,      /* IN Iternal item which is inserted */
+    Two high,                /* IN index in the given page */
+    Boolean *h,              /* OUT whether the given page is splitted */
+    InternalItem *ritem)     /* OUT if the given page is splitted, the internal item may be returned by 'ritem'. */
 {
-	Four                e;              /* error number */
-    Two                 i;              /* index */
-    Two                 entryOffset;    /* starting offset of an internal entry */
-    Two                 entryLen;       /* length of the new entry */
-    btm_InternalEntry   *entry;         /* an internal entry of an internal page */
-    Two                 neededSpace;
+    Four e;                   /* error number */
+    Two i;                    /* index */
+    Two entryOffset;          /* starting offset of an internal entry */
+    Two entryLen;             /* length of the new entry */
+    btm_InternalEntry *entry; /* an internal entry of an internal page */
 
-    
     /*@ Initially the flag are FALSE */
     *h = FALSE;
-    
-    entryLen = 4 + ALIGNED_LENGTH(2 + item->klen); //spid + ALIGN(klen + kval)
-    neededSpace = entryLen + 2; //slot size
 
-    if(neededSpace > BI_FREE(page)){
+    entryLen = 4 + ALIGNED_LENGTH(2 + item->klen);
+
+    if (entryLen + 2 > BI_FREE(page))
+    {
         e = edubtm_SplitInternal(catObjForFile, page, high, item, ritem);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
         *h = TRUE;
     }
-    else {
-
-        if(neededSpace > BI_CFREE(page)){
+    else
+    {
+        if (entryLen + 2 > BI_CFREE(page))
+        {
             edubtm_CompactInternalPage(page, NIL);
         }
 
-        //we have to put the node in slot idx+1
-
-        for(i = page->hdr.nSlots - 1; high + 1 <= i; i--){
-            page->slot[-(i+1)] = page->slot[-i];
+        for (i = page->hdr.nSlots - 1; i > high; i--)
+        {
+            page->slot[-(i + 1)] = page->slot[-i];
         }
-        page->slot[-(high+1)] = page->hdr.free;
+        page->slot[-(high + 1)] = page->hdr.free;
 
-        //kval has key, object ID sequentially
-        
         entryOffset = page->hdr.free;
         entry = &page->data[entryOffset];
 
-        memcpy(entry, item, entryLen); //InternalItem has same structure with Btm_InternalEntry
+        memcpy(entry, item, entryLen);
 
         page->hdr.free += entryLen;
         page->hdr.nSlots += 1;
-
     }
 
-    return(eNOERROR);
-    
-    
-} /* edubtm_InsertInternal() */
+    return (eNOERROR);
 
+} /* edubtm_InsertInternal() */

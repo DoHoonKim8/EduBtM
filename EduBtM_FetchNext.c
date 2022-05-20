@@ -33,17 +33,13 @@
  *  Four EduBtM_FetchNext(PageID*, KeyDesc*, KeyValue*, Four, BtreeCursor*, BtreeCursor*)
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "BfM.h"
 #include "EduBtM_Internal.h"
 
-
 /*@ Internal Function Prototypes */
-Four edubtm_FetchNext(KeyDesc*, KeyValue*, Four, BtreeCursor*, BtreeCursor*);
-
-
+Four edubtm_FetchNext(KeyDesc *, KeyValue *, Four, BtreeCursor *, BtreeCursor *);
 
 /*@================================
  * EduBtM_FetchNext()
@@ -68,56 +64,52 @@ Four edubtm_FetchNext(KeyDesc*, KeyValue*, Four, BtreeCursor*, BtreeCursor*);
  *    some errors caused by function calls
  */
 Four EduBtM_FetchNext(
-    PageID                      *root,          /* IN root page's PageID */
-    KeyDesc                     *kdesc,         /* IN key descriptor */
-    KeyValue                    *kval,          /* IN key value of stop condition */
-    Four                        compOp,         /* IN comparison operator of stop condition */
-    BtreeCursor                 *current,       /* IN current B+ tree cursor */
-    BtreeCursor                 *next)          /* OUT next B+ tree cursor */
+    PageID *root,         /* IN root page's PageID */
+    KeyDesc *kdesc,       /* IN key descriptor */
+    KeyValue *kval,       /* IN key value of stop condition */
+    Four compOp,          /* IN comparison operator of stop condition */
+    BtreeCursor *current, /* IN current B+ tree cursor */
+    BtreeCursor *next)    /* OUT next B+ tree cursor */
 {
-    int							i;
-    Four                        e;              /* error number */
-    Four                        cmp;            /* comparison result */
-    Two                         slotNo;         /* slot no. of a leaf page */
-    Two                         oidArrayElemNo; /* element no. of the array of ObjectIDs */
-    Two                         alignedKlen;    /* aligned length of key length */
-    PageID                      overflow;       /* temporary PageID of an overflow page */
-    Boolean                     found;          /* search result */
-    ObjectID                    *oidArray;      /* array of ObjectIDs */
-    BtreeLeaf                   *apage;         /* pointer to a buffer holding a leaf page */
-    BtreeOverflow               *opage;         /* pointer to a buffer holding an overflow page */
-    btm_LeafEntry               *entry;         /* pointer to a leaf entry */
-    BtreeCursor                 tCursor;        /* a temporary Btree cursor */
-  
-    
+    int i;
+    Four e;               /* error number */
+    Four cmp;             /* comparison result */
+    Two slotNo;           /* slot no. of a leaf page */
+    Two oidArrayElemNo;   /* element no. of the array of ObjectIDs */
+    Two alignedKlen;      /* aligned length of key length */
+    PageID overflow;      /* temporary PageID of an overflow page */
+    Boolean found;        /* search result */
+    ObjectID *oidArray;   /* array of ObjectIDs */
+    BtreeLeaf *apage;     /* pointer to a buffer holding a leaf page */
+    BtreeOverflow *opage; /* pointer to a buffer holding an overflow page */
+    btm_LeafEntry *entry; /* pointer to a leaf entry */
+    BtreeCursor tCursor;  /* a temporary Btree cursor */
+
     /*@ check parameter */
     if (root == NULL || kdesc == NULL || kval == NULL || current == NULL || next == NULL)
-	ERR(eBADPARAMETER_BTM);
-    
+        ERR(eBADPARAMETER_BTM);
+
     /* Is the current cursor valid? */
     if (current->flag != CURSOR_ON && current->flag != CURSOR_EOS)
-		ERR(eBADCURSOR);
-    
-    if (current->flag == CURSOR_EOS) return(eNOERROR);
-    
+        ERR(eBADCURSOR);
+
+    if (current->flag == CURSOR_EOS)
+        return (eNOERROR);
+
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-
     e = edubtm_FetchNext(kdesc, kval, compOp, current, next);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
+    return (eNOERROR);
 
-    
-    return(eNOERROR);
-    
 } /* EduBtM_FetchNext() */
-
-
 
 /*@================================
  * edubtm_FetchNext()
@@ -139,134 +131,154 @@ Four EduBtM_FetchNext(
  *    some errors caused by function calls
  */
 Four edubtm_FetchNext(
-    KeyDesc  		*kdesc,		/* IN key descriptor */
-    KeyValue 		*kval,		/* IN key value of stop condition */
-    Four     		compOp,		/* IN comparison operator of stop condition */
-    BtreeCursor 	*current,	/* IN current cursor */
-    BtreeCursor 	*next)		/* OUT next cursor */
+    KeyDesc *kdesc,       /* IN key descriptor */
+    KeyValue *kval,       /* IN key value of stop condition */
+    Four compOp,          /* IN comparison operator of stop condition */
+    BtreeCursor *current, /* IN current cursor */
+    BtreeCursor *next)    /* OUT next cursor */
 {
-	Four 		e;		/* error number */
-    Four 		cmp;		/* comparison result */
-    Two 		alignedKlen;	/* aligned length of a key length */
-    PageID 		leaf;		/* temporary PageID of a leaf page */
-    PageID 		overflow;	/* temporary PageID of an overflow page */
-    ObjectID 		*oidArray;	/* array of ObjectIDs */
-    BtreeLeaf 		*apage;		/* pointer to a buffer holding a leaf page */
-    BtreeOverflow 	*opage;		/* pointer to a buffer holding an overflow page */
-    btm_LeafEntry 	*entry;		/* pointer to a leaf entry */    
-    
-    
+    Four e;               /* error number */
+    Four cmp;             /* comparison result */
+    Two alignedKlen;      /* aligned length of a key length */
+    PageID leaf;          /* temporary PageID of a leaf page */
+    PageID overflow;      /* temporary PageID of an overflow page */
+    ObjectID *oidArray;   /* array of ObjectIDs */
+    BtreeLeaf *apage;     /* pointer to a buffer holding a leaf page */
+    BtreeOverflow *opage; /* pointer to a buffer holding an overflow page */
+    btm_LeafEntry *entry; /* pointer to a leaf entry */
+
     /* Error check whether using not supported functionality by EduBtM */
     int i;
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
     e = BfM_GetTrain(&current->leaf, &apage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     leaf = current->leaf;
 
-    if(compOp == SM_EQ){
-        next->flag = CURSOR_INVALID; //no duplicate key
-        e = BfM_FreeTrain(&leaf, PAGE_BUF);
-        if(e<0) ERR(e);
-        return(eNOERROR);
+    if (compOp == SM_EQ)
+    {
+        next->flag = CURSOR_INVALID;
+        e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
+        if (e < 0)
+            ERR(e);
+        return (eNOERROR);
     }
-    else if(compOp == SM_LT || compOp == SM_LE){
-        if(current->slotNo == apage->hdr.nSlots - 1){
-            if(apage->hdr.nextPage == NIL){
+    else if (compOp == SM_LT || compOp == SM_LE)
+    {
+        if (current->slotNo == apage->hdr.nSlots - 1)
+        {
+            if (apage->hdr.nextPage == NIL)
+            {
                 next->flag = CURSOR_EOS;
                 e = BfM_FreeTrain(&leaf, PAGE_BUF);
-                if(e<0) ERR(e);
-                return(eNOERROR);
+                if (e < 0)
+                    ERR(e);
+                return (eNOERROR);
             }
 
             leaf.pageNo = apage->hdr.nextPage;
+            leaf.volNo = apage->hdr.pid.volNo;
 
             e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
             e = BfM_GetTrain(&leaf, &apage, PAGE_BUF);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
             next->slotNo = 0;
         }
-        else{
+        else
+        {
             next->slotNo = current->slotNo + 1;
         }
-        
     }
-    else if(compOp == SM_GT || compOp == SM_GE){
-        if(current->slotNo == 0){
-            if(apage->hdr.prevPage == NIL){
+    else if (compOp == SM_GT || compOp == SM_GE)
+    {
+        if (current->slotNo == 0)
+        {
+            if (apage->hdr.prevPage == NIL)
+            {
                 next->flag = CURSOR_EOS;
                 e = BfM_FreeTrain(&leaf, PAGE_BUF);
-                if(e<0) ERR(e);
-                return(eNOERROR);
+                if (e < 0)
+                    ERR(e);
+                return (eNOERROR);
             }
 
             leaf.pageNo = apage->hdr.prevPage;
 
             e = BfM_FreeTrain(&current->leaf, PAGE_BUF);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
             e = BfM_GetTrain(&leaf, &apage, PAGE_BUF);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
             next->slotNo = apage->hdr.nSlots - 1;
-
         }
-        else{
+        else
+        {
             next->slotNo = current->slotNo - 1;
         }
     }
 
-    // need leaf, next->slotNo, apage
     entry = apage->data + apage->slot[-next->slotNo];
     alignedKlen = ALIGNED_LENGTH(entry->klen);
     oidArray = &entry->kval[alignedKlen];
-
 
     next->leaf = leaf;
     next->key.len = entry->klen;
     memcpy(next->key.val, entry->kval, entry->klen);
     next->oid = *oidArray;
 
-
     cmp = edubtm_KeyCompare(kdesc, &next->key, kval);
-    if(cmp == EQUAL){
-        if(compOp == SM_EQ || compOp == SM_GE || compOp == SM_LE){
+    if (cmp == EQUAL)
+    {
+        if (compOp == SM_GE || compOp == SM_LE)
+        {
             next->flag = CURSOR_ON;
         }
-        else{
+        else
+        {
             next->flag = CURSOR_EOS;
         }
     }
-    else if(cmp == GREATER){
-        if(compOp == SM_GE || compOp == SM_GT){
+    else if (cmp == GREATER)
+    {
+        if (compOp == SM_GE || compOp == SM_GT)
+        {
             next->flag = CURSOR_ON;
         }
-        else{
+        else
+        {
             next->flag = CURSOR_EOS;
         }
-
     }
-    else if(cmp == LESS){
-        if(compOp == SM_LE || compOp == SM_LT){
+    else if (cmp == LESS)
+    {
+        if (compOp == SM_LE || compOp == SM_LT)
+        {
             next->flag = CURSOR_ON;
         }
-        else{
+        else
+        {
             next->flag = CURSOR_EOS;
         }
     }
 
     e = BfM_FreeTrain(&leaf, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    
-    return(eNOERROR);
-    
+    return (eNOERROR);
+
 } /* edubtm_FetchNext() */

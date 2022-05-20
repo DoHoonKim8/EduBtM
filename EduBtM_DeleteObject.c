@@ -25,20 +25,17 @@
 /*
  * Module: EduBtM_DeleteObject.c
  *
- * Description : 
+ * Description :
  *  Delete from a B+tree an ObjectID 'oid' whose key value is given by "kval".
  *
  * Exports:
  *  Four EduBtM_DeleteObject(ObjectID*, PageID*, KeyDesc*, KeyValue*, ObjectID*)
  */
 
-
 #include "EduBtM_common.h"
 #include "BfM.h"
 #include "OM_Internal.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * EduBtM_DeleteObject()
@@ -46,7 +43,7 @@
 /*
  * Function: Four EduBtM_DeleteObject(ObjectID*, PageID*, KeyDesc*, KeyValue*, ObjectID*)
  *
- * Description : 
+ * Description :
  * (Following description is for original ODYSSEUS/COSMOS BtM.
  *  For ODYSSEUS/EduCOSMOS EduBtM, refer to the EduBtM project manual.)
  *
@@ -65,67 +62,79 @@
  *    some errors caused by fucntion calls
  */
 Four EduBtM_DeleteObject(
-    ObjectID *catObjForFile,	/* IN catalog object of B+-tree file */
-    PageID   *root,		/* IN root Page IDentifier */
-    KeyDesc  *kdesc,		/* IN a key descriptor */
-    KeyValue *kval,		/* IN key value */
-    ObjectID *oid,		/* IN Object IDentifier */
-    Pool     *dlPool,		/* INOUT pool of dealloc list elements */
+    ObjectID *catObjForFile, /* IN catalog object of B+-tree file */
+    PageID *root,            /* IN root Page IDentifier */
+    KeyDesc *kdesc,          /* IN a key descriptor */
+    KeyValue *kval,          /* IN key value */
+    ObjectID *oid,           /* IN Object IDentifier */
+    Pool *dlPool,            /* INOUT pool of dealloc list elements */
     DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-    int		i;
-    Four    e;			/* error number */
-    Boolean lf;			/* flag for merging */
-    Boolean lh;			/* flag for splitting */
-    InternalItem item;		/* Internal item */
-    SlottedPage *catPage;	/* buffer page containing the catalog object */
+    int i;
+    Four e;                          /* error number */
+    Boolean lf;                      /* flag for merging */
+    Boolean lh;                      /* flag for splitting */
+    InternalItem item;               /* Internal item */
+    SlottedPage *catPage;            /* buffer page containing the catalog object */
     sm_CatOverlayForBtree *catEntry; /* pointer to Btree file catalog information */
-    PhysicalFileID pFid;        /* B+-tree file's FileID */
-
+    PhysicalFileID pFid;             /* B+-tree file's FileID */
 
     /*@ check parameters */
-    if (catObjForFile == NULL) ERR(eBADPARAMETER_BTM);
+    if (catObjForFile == NULL)
+        ERR(eBADPARAMETER_BTM);
 
-    if (root == NULL) ERR(eBADPARAMETER_BTM);
+    if (root == NULL)
+        ERR(eBADPARAMETER_BTM);
 
-    if (kdesc == NULL) ERR(eBADPARAMETER_BTM);
+    if (kdesc == NULL)
+        ERR(eBADPARAMETER_BTM);
 
-    if (kval == NULL) ERR(eBADPARAMETER_BTM);
+    if (kval == NULL)
+        ERR(eBADPARAMETER_BTM);
 
-    if (oid == NULL) ERR(eBADPARAMETER_BTM);
-    
-    if (dlPool == NULL || dlHead == NULL) ERR(eBADPARAMETER_BTM);
+    if (oid == NULL)
+        ERR(eBADPARAMETER_BTM);
+
+    if (dlPool == NULL || dlHead == NULL)
+        ERR(eBADPARAMETER_BTM);
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
     e = edubtm_Delete(catObjForFile, root, kdesc, kval, oid, &lf, &lh, &item, dlPool, dlHead);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_GetTrain(catObjForFile, &catPage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     GET_PTR_TO_CATENTRY_FOR_BTREE(catObjForFile, catPage, catEntry);
 
     MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
 
     e = BfM_FreeTrain(catObjForFile, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    if(lf){
+    if (lf)
+    {
         e = btm_root_delete(&pFid, root, dlPool, dlHead);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    
-    if(lh){
+
+    if (lh)
+    {
         e = edubtm_root_insert(catObjForFile, root, &item);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    
-    return(eNOERROR);
-    
-}   /* EduBtM_DeleteObject() */
+
+    return (eNOERROR);
+
+} /* EduBtM_DeleteObject() */

@@ -25,7 +25,7 @@
 /*
  * Module: edubtm_Delete.c
  *
- * Description : 
+ * Description :
  *  This function edubtm_Delete(...) recursively calls itself until the type
  *  of root page becomes LEAF.  If the root page is an internal page, it
  *  may get the proper child page using the binary search routine and then
@@ -54,20 +54,16 @@
  *
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "Util.h"
 #include "BfM.h"
-#include "OM_Internal.h"	/* for "SlottedPage" including catalog object */
+#include "OM_Internal.h" /* for "SlottedPage" including catalog object */
 #include "EduBtM_Internal.h"
 
-
 /*@ Internal Function Prototypes */
-Four edubtm_DeleteLeaf(PhysicalFileID*, PageID*, BtreeLeaf*, KeyDesc*, KeyValue*, ObjectID*,
-		    Boolean*, Boolean*, InternalItem*, Pool*, DeallocListElem*);
-
-
+Four edubtm_DeleteLeaf(PhysicalFileID *, PageID *, BtreeLeaf *, KeyDesc *, KeyValue *, ObjectID *,
+                       Boolean *, Boolean *, InternalItem *, Pool *, DeallocListElem *);
 
 /*@================================
  * edubtm_Delete()
@@ -92,73 +88,79 @@ Four edubtm_DeleteLeaf(PhysicalFileID*, PageID*, BtreeLeaf*, KeyDesc*, KeyValue*
  *  item : The internal item to be inserted into the parent if 'h' is TRUE.
  */
 Four edubtm_Delete(
-    ObjectID                    *catObjForFile, /* IN catalog object of B+ tree file */
-    PageID                      *root,          /* IN root page */
-    KeyDesc                     *kdesc,         /* IN a key descriptor */
-    KeyValue                    *kval,          /* IN key value */
-    ObjectID                    *oid,           /* IN Object IDentifier which will be deleted */
-    Boolean                     *f,             /* OUT whether the root page is half full */
-    Boolean                     *h,             /* OUT TRUE if it is spiltted. */
-    InternalItem                *item,          /* OUT The internal item to be returned */
-    Pool                        *dlPool,        /* INOUT pool of dealloc list elements */
-    DeallocListElem             *dlHead)        /* INOUT head of the dealloc list */
+    ObjectID *catObjForFile, /* IN catalog object of B+ tree file */
+    PageID *root,            /* IN root page */
+    KeyDesc *kdesc,          /* IN a key descriptor */
+    KeyValue *kval,          /* IN key value */
+    ObjectID *oid,           /* IN Object IDentifier which will be deleted */
+    Boolean *f,              /* OUT whether the root page is half full */
+    Boolean *h,              /* OUT TRUE if it is spiltted. */
+    InternalItem *item,      /* OUT The internal item to be returned */
+    Pool *dlPool,            /* INOUT pool of dealloc list elements */
+    DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-    Four                        e;              /* error number */
-    Boolean                     lf;             /* TRUE if a page is not half full */
-    Boolean                     lh;             /* TRUE if a page is splitted */
-    Two                         idx;            /* the index by the binary search */
-    PageID                      child;          /* a child page when the root is an internal page */
-    KeyValue                    tKey;           /* a temporary key */
-    BtreePage                   *rpage;         /* for a root page */
-    InternalItem                litem;          /* local internal item */
-    btm_InternalEntry           *iEntry;        /* an internal entry */
-    Two                         iEntryOffset;
-    SlottedPage                 *catPage;       /* buffer page containing the catalog object */
-    sm_CatOverlayForBtree       *catEntry;      /* pointer to Btree file catalog information */
-    PhysicalFileID              pFid;           /* B+-tree file's FileID */
-  
+    Four e;                    /* error number */
+    Boolean lf;                /* TRUE if a page is not half full */
+    Boolean lh;                /* TRUE if a page is splitted */
+    Two idx;                   /* the index by the binary search */
+    PageID child;              /* a child page when the root is an internal page */
+    KeyValue tKey;             /* a temporary key */
+    BtreePage *rpage;          /* for a root page */
+    InternalItem litem;        /* local internal item */
+    btm_InternalEntry *iEntry; /* an internal entry */
+    Two iEntryOffset;
+    SlottedPage *catPage;            /* buffer page containing the catalog object */
+    sm_CatOverlayForBtree *catEntry; /* pointer to Btree file catalog information */
+    PhysicalFileID pFid;             /* B+-tree file's FileID */
 
     /* Error check whether using not supported functionality by EduBtM */
-	int i;
-    for(i=0; i<kdesc->nparts; i++)
+    int i;
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-        
     *h = *f = FALSE;
 
     e = BfM_GetTrain(catObjForFile, &catPage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     GET_PTR_TO_CATENTRY_FOR_BTREE(catObjForFile, catPage, catEntry);
 
     MAKE_PHYSICALFILEID(pFid, catEntry->fid.volNo, catEntry->firstPage);
 
     e = BfM_FreeTrain(catObjForFile, PAGE_BUF);
-    if(e<0) ERR(e);
-    
-    e = BfM_GetTrain(root, &rpage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    if(rpage->any.hdr.type & LEAF){ //root is leaf
+    e = BfM_GetTrain(root, &rpage, PAGE_BUF);
+    if (e < 0)
+        ERR(e);
+
+    if (rpage->any.hdr.type & LEAF)
+    {
         e = edubtm_DeleteLeaf(&pFid, root, rpage, kdesc, kval, oid, f, h, item, dlPool, dlHead);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
         e = BfM_SetDirty(root, PAGE_BUF);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    else if(rpage->any.hdr.type & INTERNAL) {
-        
+    else if (rpage->any.hdr.type & INTERNAL)
+    {
+
         edubtm_BinarySearchInternal(rpage, kdesc, kval, &idx);
 
-        if(idx == -1){ //key is smaller than any index entry key
+        if (idx == -1)
+        {
             child.volNo = root->volNo;
             child.pageNo = rpage->bi.hdr.p0;
-            
         }
-        else{
+        else
+        {
             iEntryOffset = rpage->bi.slot[-idx];
             iEntry = &rpage->bi.data[iEntryOffset];
 
@@ -167,43 +169,46 @@ Four edubtm_Delete(
         }
 
         e = edubtm_Delete(catObjForFile, &child, kdesc, kval, oid, &lf, &lh, &litem, dlPool, dlHead);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
-        if(lf == TRUE){ // underflow
+        if (lf)
+        {
             e = btm_Underflow(&pFid, rpage, &child, idx, f, &lh, &litem, dlPool, dlHead);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
 
-            
-            if(lh == TRUE){
+            if (lh)
+            {
                 tKey.len = litem.klen;
                 memcpy(tKey.val, litem.kval, litem.klen);
 
                 edubtm_BinarySearchInternal(rpage, kdesc, &tKey, &idx);
 
                 e = edubtm_InsertInternal(catObjForFile, rpage, &litem, idx, h, item);
-                if(e<0) ERR(e);
+                if (e < 0)
+                    ERR(e);
 
                 *h = TRUE;
             }
 
             e = BfM_SetDirty(root, PAGE_BUF);
-            if(e<0) ERR(e);
+            if (e < 0)
+                ERR(e);
         }
-
     }
-    else{
+    else
+    {
         ERR(eBADBTREEPAGE_BTM);
     }
 
-
     e = BfM_FreeTrain(root, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    return(eNOERROR);
-    
-}   /* edubtm_Delete() */
+    return (eNOERROR);
 
-
+} /* edubtm_Delete() */
 
 /*@================================
  * edubtm_DeleteLeaf()
@@ -227,86 +232,90 @@ Four edubtm_Delete(
  *  f    : TRUE if the given root page is not half full.
  *  h    : TRUE if the given page is splitted.
  *  item : The internal item to be inserted into the parent if 'h' is TRUE.
- */ 
+ */
 Four edubtm_DeleteLeaf(
-    PhysicalFileID              *pFid,          /* IN FileID of the Btree file */
-    PageID                      *pid,           /* IN PageID of the leaf page */
-    BtreeLeaf                   *apage,         /* INOUT buffer for the Leaf Page */
-    KeyDesc                     *kdesc,         /* IN a key descriptor */
-    KeyValue                    *kval,          /* IN key value */
-    ObjectID                    *oid,           /* IN ObjectID which will be deleted */
-    Boolean                     *f,             /* OUT whether the root page is half full */
-    Boolean                     *h,             /* OUT TRUE if it is spiltted. */
-    InternalItem                *item,          /* OUT The internal item to be returned */
-    Pool                        *dlPool,        /* INOUT pool of dealloc list elements */
-    DeallocListElem             *dlHead)        /* INOUT head of a dealloc list */
+    PhysicalFileID *pFid,    /* IN FileID of the Btree file */
+    PageID *pid,             /* IN PageID of the leaf page */
+    BtreeLeaf *apage,        /* INOUT buffer for the Leaf Page */
+    KeyDesc *kdesc,          /* IN a key descriptor */
+    KeyValue *kval,          /* IN key value */
+    ObjectID *oid,           /* IN ObjectID which will be deleted */
+    Boolean *f,              /* OUT whether the root page is half full */
+    Boolean *h,              /* OUT TRUE if it is spiltted. */
+    InternalItem *item,      /* OUT The internal item to be returned */
+    Pool *dlPool,            /* INOUT pool of dealloc list elements */
+    DeallocListElem *dlHead) /* INOUT head of a dealloc list */
 {
-    Four                        e;              /* error number */
-    Two                         i;              /* index */
-    Two                         of;             /* # of ObjectIDs of an overflow page when less than 1/4 */
-    Two                         idx;            /* the index by the binary search */
-    ObjectID                    tOid;           /* a Object IDentifier */
-    BtreeOverflow               *opage;         /* for a overflow page */
-    Boolean                     found;          /* Search Result */
-    Two                         lEntryOffset;   /* starting offset of a leaf entry */
-    btm_LeafEntry               *lEntry;        /* an entry in leaf page */
-    ObjectID                    *oidArray;      /* start position of the ObjectID array */
-    Two                         oidArrayElemNo; /* element number in the ObjectIDs array */
-    Two                         entryLen;       /* length of the old leaf entry */
-    Two                         newLen;         /* length of the new leaf entry */
-    Two                         alignedKlen;    /* aligned length of the key length */
-    PageID                      ovPid;          /* overflow page's PageID */
-    DeallocListElem             *dlElem;        /* an element of the dealloc list */
-
+    Four e;                  /* error number */
+    Two i;                   /* index */
+    Two of;                  /* # of ObjectIDs of an overflow page when less than 1/4 */
+    Two idx;                 /* the index by the binary search */
+    ObjectID tOid;           /* a Object IDentifier */
+    BtreeOverflow *opage;    /* for a overflow page */
+    Boolean found;           /* Search Result */
+    Two lEntryOffset;        /* starting offset of a leaf entry */
+    btm_LeafEntry *lEntry;   /* an entry in leaf page */
+    ObjectID *oidArray;      /* start position of the ObjectID array */
+    Two oidArrayElemNo;      /* element number in the ObjectIDs array */
+    Two entryLen;            /* length of the old leaf entry */
+    Two newLen;              /* length of the new leaf entry */
+    Two alignedKlen;         /* aligned length of the key length */
+    PageID ovPid;            /* overflow page's PageID */
+    DeallocListElem *dlElem; /* an element of the dealloc list */
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-
-    found = edubtm_BinarySearchLeaf(apage, kdesc, kval, &idx); 
-    if(found){
+    found = edubtm_BinarySearchLeaf(apage, kdesc, kval, &idx);
+    if (found)
+    {
 
         lEntryOffset = apage->slot[-idx];
         lEntry = &apage->data[lEntryOffset];
 
         alignedKlen = ALIGNED_LENGTH(lEntry->klen);
         oidArray = &lEntry->kval[alignedKlen];
-        tOid = *oidArray; //only one object in one entry for educosmos
+        tOid = *oidArray;
         entryLen = 2 + 2 + alignedKlen + sizeof(ObjectID);
-        //sizeof(nObjects) + sizeof(klen) + alignedKlen + sizeof(ObjectID)
 
-        if (btm_ObjectIdComp(oid, &tOid) == EQUAL){
+        if (btm_ObjectIdComp(oid, &tOid) == EQUAL)
+        {
 
-            for(i = idx + 1; i < apage->hdr.nSlots; i++){
-                apage->slot[-(i-1)] = apage->slot[-i];
+            for (i = idx + 1; i < apage->hdr.nSlots; i++)
+            {
+                apage->slot[-(i - 1)] = apage->slot[-i];
             }
-            
-            if(lEntryOffset + entryLen == apage->hdr.free)
+
+            if (lEntryOffset + entryLen == apage->hdr.free)
                 apage->hdr.free -= entryLen;
             else
                 apage->hdr.unused += entryLen;
 
             apage->hdr.nSlots -= 1;
         }
-        else{
+        else
+        {
             ERR(eNOTFOUND_BTM);
         }
     }
-    else{
+    else
+    {
         ERR(eNOTFOUND_BTM);
     }
 
-    if(BL_FREE(apage) > BL_HALF){
+    if (BL_FREE(apage) > BL_HALF)
+    {
         *f = TRUE;
     }
 
     e = BfM_SetDirty(pid, PAGE_BUF);
-    if(e<0) ERR(e);
-	      
-    return(eNOERROR);
-    
+    if (e < 0)
+        ERR(e);
+
+    return (eNOERROR);
+
 } /* edubtm_DeleteLeaf() */

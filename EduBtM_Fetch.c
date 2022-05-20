@@ -38,17 +38,13 @@
  *  Four EduBtM_Fetch(PageID*, KeyDesc*, KeyValue*, Four, KeyValue*, Four, BtreeCursor*)
  */
 
-
 #include <string.h>
 #include "EduBtM_common.h"
 #include "BfM.h"
 #include "EduBtM_Internal.h"
 
-
 /*@ Internal Function Prototypes */
-Four edubtm_Fetch(PageID*, KeyDesc*, KeyValue*, Four, KeyValue*, Four, BtreeCursor*);
-
-
+Four edubtm_Fetch(PageID *, KeyDesc *, KeyValue *, Four, KeyValue *, Four, BtreeCursor *);
 
 /*@================================
  * EduBtM_Fetch()
@@ -72,46 +68,49 @@ Four edubtm_Fetch(PageID*, KeyDesc*, KeyValue*, Four, KeyValue*, Four, BtreeCurs
  *            (it may indicate a ObjectID in an  overflow page).
  */
 Four EduBtM_Fetch(
-    PageID   *root,		/* IN The current root of the subtree */
-    KeyDesc  *kdesc,		/* IN Btree key descriptor */
-    KeyValue *startKval,	/* IN key value of start condition */
-    Four     startCompOp,	/* IN comparison operator of start condition */
-    KeyValue *stopKval,		/* IN key value of stop condition */
-    Four     stopCompOp,	/* IN comparison operator of stop condition */
-    BtreeCursor *cursor)	/* OUT Btree Cursor */
+    PageID *root,        /* IN The current root of the subtree */
+    KeyDesc *kdesc,      /* IN Btree key descriptor */
+    KeyValue *startKval, /* IN key value of start condition */
+    Four startCompOp,    /* IN comparison operator of start condition */
+    KeyValue *stopKval,  /* IN key value of stop condition */
+    Four stopCompOp,     /* IN comparison operator of stop condition */
+    BtreeCursor *cursor) /* OUT Btree Cursor */
 {
-	int i;
-    Four e;		   /* error number */
+    int i;
+    Four e; /* error number */
 
-    
-    if (root == NULL) ERR(eBADPARAMETER_BTM);
+    if (root == NULL)
+        ERR(eBADPARAMETER_BTM);
 
     /* Error check whether using not supported functionality by EduBtM */
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
-    if(startCompOp == SM_BOF){
+    if (startCompOp == SM_BOF)
+    {
         e = edubtm_FirstObject(root, kdesc, stopKval, stopCompOp, cursor);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    else if(startCompOp == SM_EOF){
+    else if (startCompOp == SM_EOF)
+    {
         e = edubtm_LastObject(root, kdesc, stopKval, stopCompOp, cursor);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    else{
+    else
+    {
         e = edubtm_Fetch(root, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
     }
-    
 
-    return(eNOERROR);
+    return (eNOERROR);
 
 } /* EduBtM_Fetch() */
-
-
 
 /*@================================
  * edubtm_Fetch()
@@ -128,291 +127,327 @@ Four EduBtM_Fetch(
  *  SM_EQ, SM_LT, SM_LE, SM_GT, SM_GE.
  *
  * Returns:
- *  Error code *   
+ *  Error code *
  *    eBADCOMPOP_BTM
  *    eBADBTREEPAGE_BTM
  *    some errors caused by function calls
  */
 Four edubtm_Fetch(
-    PageID              *root,          /* IN The current root of the subtree */
-    KeyDesc             *kdesc,         /* IN Btree key descriptor */
-    KeyValue            *startKval,     /* IN key value of start condition */
-    Four                startCompOp,    /* IN comparison operator of start condition */
-    KeyValue            *stopKval,      /* IN key value of stop condition */
-    Four                stopCompOp,     /* IN comparison operator of stop condition */
-    BtreeCursor         *cursor)        /* OUT Btree Cursor */
+    PageID *root,        /* IN The current root of the subtree */
+    KeyDesc *kdesc,      /* IN Btree key descriptor */
+    KeyValue *startKval, /* IN key value of start condition */
+    Four startCompOp,    /* IN comparison operator of start condition */
+    KeyValue *stopKval,  /* IN key value of stop condition */
+    Four stopCompOp,     /* IN comparison operator of stop condition */
+    BtreeCursor *cursor) /* OUT Btree Cursor */
 {
-	 Four                e;              /* error number */
-    Four                cmp;            /* result of comparison */
-    Two                 idx;            /* index */
-    PageID              child;          /* child page when the root is an internla page */
-    Two                 alignedKlen;    /* aligned size of the key length */
-    BtreePage           *apage;         /* a Page Pointer to the given root */
-    BtreePage           *prevPage;
-    BtreePage           *nextPage;
-    BtreeOverflow       *opage;         /* a page pointer if it necessary to access an overflow page */
-    Boolean             found;          /* search result */
-    PageID              leafPid;       /* leaf page pointed by the cursor */
-    Two                 slotNo;         /* slot pointed by the slot */
-    PageID              ovPid;          /* PageID of the overflow page */
-    PageNo              ovPageNo;       /* PageNo of the overflow page */
-    PageID              prevPid;        /* PageID of the previous page */
-    PageID              nextPid;        /* PageID of the next page */
-    ObjectID            *oidArray;      /* array of the ObjectIDs */
-    Two                 iEntryOffset;   /* starting offset of an internal entry */
-    btm_InternalEntry   *iEntry;        /* an internal entry */
-    Two                 lEntryOffset;   /* starting offset of a leaf entry */
-    btm_LeafEntry       *lEntry;        /* a leaf entry */
-
+    Four e;           /* error number */
+    Four cmp;         /* result of comparison */
+    Two idx;          /* index */
+    PageID child;     /* child page when the root is an internla page */
+    Two alignedKlen;  /* aligned size of the key length */
+    BtreePage *apage; /* a Page Pointer to the given root */
+    BtreePage *prevPage;
+    BtreePage *nextPage;
+    BtreeOverflow *opage;      /* a page pointer if it necessary to access an overflow page */
+    Boolean found;             /* search result */
+    PageID leafPid;            /* leaf page pointed by the cursor */
+    Two slotNo;                /* slot pointed by the slot */
+    PageID ovPid;              /* PageID of the overflow page */
+    PageNo ovPageNo;           /* PageNo of the overflow page */
+    PageID prevPid;            /* PageID of the previous page */
+    PageID nextPid;            /* PageID of the next page */
+    ObjectID *oidArray;        /* array of the ObjectIDs */
+    Two iEntryOffset;          /* starting offset of an internal entry */
+    btm_InternalEntry *iEntry; /* an internal entry */
+    Two lEntryOffset;          /* starting offset of a leaf entry */
+    btm_LeafEntry *lEntry;     /* a leaf entry */
 
     /* Error check whether using not supported functionality by EduBtM */
     int i;
-    for(i=0; i<kdesc->nparts; i++)
+    for (i = 0; i < kdesc->nparts; i++)
     {
-        if(kdesc->kpart[i].type!=SM_INT && kdesc->kpart[i].type!=SM_VARSTRING)
+        if (kdesc->kpart[i].type != SM_INT && kdesc->kpart[i].type != SM_VARSTRING)
             ERR(eNOTSUPPORTED_EDUBTM);
     }
 
     e = BfM_GetTrain(root, &apage, PAGE_BUF);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    if(apage->any.hdr.type & INTERNAL){
+    if (apage->any.hdr.type & INTERNAL)
+    {
         found = edubtm_BinarySearchInternal(apage, kdesc, startKval, &idx);
-        if(idx == -1){
+        if (idx == -1)
+        {
             child.volNo = root->volNo;
             child.pageNo = apage->bi.hdr.p0;
         }
-        else{
-            iEntry = apage->bi.data + apage->bi.slot[-idx];
+        else
+        {
+            iEntry = &apage->bi.data[apage->bi.slot[-idx]];
             child.volNo = root->volNo;
             child.pageNo = iEntry->spid;
         }
 
         e = edubtm_Fetch(&child, kdesc, startKval, startCompOp, stopKval, stopCompOp, cursor);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
         e = BfM_FreeTrain(root, PAGE_BUF);
-        if(e<0) ERR(e);
-    } 
-    else if(apage->any.hdr.type & LEAF){
+        if (e < 0)
+            ERR(e);
+    }
+    else if (apage->any.hdr.type & LEAF)
+    {
         found = edubtm_BinarySearchLeaf(apage, kdesc, startKval, &idx);
         leafPid = *root;
 
-        if(startCompOp == SM_EQ){
-            if(found){
-                idx = idx;
+        if (startCompOp == SM_EQ)
+        {
+            if (found)
+            {
+                slotNo = idx;
             }
-            else{
+            else
+            {
                 cursor->flag = CURSOR_EOS;
                 e = BfM_FreeTrain(root, PAGE_BUF);
-                if(e<0) ERR(e);
-                return(eNOERROR);
+                if (e < 0)
+                    ERR(e);
+                return (eNOERROR);
             }
-
         }
-        else if(startCompOp == SM_LT){
-            if(found){ //same value found, idx must be >=0
-                if(idx == 0){ //first value
+        else if (startCompOp == SM_LT)
+        {
+            if (found)
+            {
+                if (idx == 0)
+                {
                     prevPid.volNo = root->volNo;
                     prevPid.pageNo = apage->bl.hdr.prevPage;
 
                     e = BfM_FreeTrain(root, PAGE_BUF);
-                    if(e<0) ERR(e);
+                    if (e < 0)
+                        ERR(e);
 
-                    if(prevPid.pageNo == NIL){
+                    if (prevPid.pageNo == NIL)
+                    {
                         cursor->flag = CURSOR_EOS;
-                        return(eNOERROR);
+                        return (eNOERROR);
                     }
 
                     e = BfM_GetTrain(&prevPid, &apage, PAGE_BUF);
-                    if(e<0) ERR(e);
+                    if (e < 0)
+                        ERR(e);
 
-                    idx = apage->bl.hdr.nSlots - 1;
+                    slotNo = apage->bl.hdr.nSlots - 1;
 
                     leafPid = prevPid;
-
                 }
-                else{
-                    idx -= 1;
+                else
+                {
+                    slotNo = idx - 1;
                 }
             }
-            else{
-                if(idx != -1){
-                    idx = idx;
+            else
+            {
+                if (idx != -1)
+                {
+                    slotNo = idx;
                 }
-                else{ //no less value
+                else
+                {
                     cursor->flag = CURSOR_EOS;
                     e = BfM_FreeTrain(root, PAGE_BUF);
-                    if(e<0) ERR(e);
-                    return(eNOERROR);
+                    if (e < 0)
+                        ERR(e);
+                    return (eNOERROR);
                 }
             }
-
         }
-        else if(startCompOp == SM_LE){
-            //binary search finds least or equal index
-            if(found){ 
-                idx = idx;
+        else if (startCompOp == SM_LE)
+        {
+            if (found)
+            {
+                slotNo = idx;
             }
-            else{
-                if(idx != -1){
-                    idx = idx;
+            else
+            {
+                if (idx != -1)
+                {
+                    slotNo = idx;
                 }
-                else{
+                else
+                {
                     cursor->flag = CURSOR_EOS;
                     e = BfM_FreeTrain(root, PAGE_BUF);
-                    if(e<0) ERR(e);
-                    return(eNOERROR);
+                    if (e < 0)
+                        ERR(e);
+                    return (eNOERROR);
                 }
-                
             }
-
         }
-        else if(startCompOp == SM_GT){
-            if(found){ //idx must be >= 0
-                if(idx == apage->bl.hdr.nSlots - 1){
+        else if (startCompOp == SM_GT)
+        {
+            if (found)
+            {
+                if (idx == apage->bl.hdr.nSlots - 1)
+                {
                     nextPid.volNo = root->volNo;
                     nextPid.pageNo = apage->bl.hdr.nextPage;
 
                     e = BfM_FreeTrain(root, PAGE_BUF);
-                    if(e<0) ERR(e);
+                    if (e < 0)
+                        ERR(e);
 
-                    if(nextPid.pageNo == NIL){
+                    if (nextPid.pageNo == NIL)
+                    {
                         cursor->flag = CURSOR_EOS;
-                        return(eNOERROR);
+                        return (eNOERROR);
                     }
 
                     e = BfM_GetTrain(&nextPid, &apage, PAGE_BUF);
-                    if(e<0) ERR(e);
+                    if (e < 0)
+                        ERR(e);
 
-                    idx = 0;
+                    slotNo = 0;
                     leafPid = nextPid;
                 }
-                else{
-                    idx += 1;
+                else
+                {
+                    slotNo = idx + 1;
                 }
             }
-            else{
-                if(idx != -1){
-                    if(idx == apage->bl.hdr.nSlots - 1){
+            else
+            {
+                if (idx != -1)
+                {
+                    if (idx == apage->bl.hdr.nSlots - 1)
+                    {
                         nextPid.volNo = root->volNo;
                         nextPid.pageNo = apage->bl.hdr.nextPage;
 
                         e = BfM_FreeTrain(root, PAGE_BUF);
-                        if(e<0) ERR(e);
+                        if (e < 0)
+                            ERR(e);
 
-                        if(nextPid.pageNo == NIL){
+                        if (nextPid.pageNo == NIL)
+                        {
                             cursor->flag = CURSOR_EOS;
-                            return(eNOERROR);
+                            return (eNOERROR);
                         }
 
                         e = BfM_GetTrain(&nextPid, &apage, PAGE_BUF);
-                        if(e<0) ERR(e);
+                        if (e < 0)
+                            ERR(e);
 
                         idx = 0;
                         leafPid = nextPid;
                     }
-                    else{
-                        idx += 1;
+                    else
+                    {
+                        slotNo = idx + 1;
                     }
                 }
-                else{
-                    //every key is bigger than given key : pick smallest key : slot 0
-                    idx = 0;
+                else
+                {
+                    slotNo = 0;
                 }
-
             }
-
-
         }
-        else if(startCompOp == SM_GE){
+        else if (startCompOp == SM_GE)
+        {
 
-            if(found){ //equal found
-                idx = idx;
+            if (found)
+            {
+                slotNo = idx;
             }
-            else{
-                if(idx != -1){
-                    if(idx == apage->bl.hdr.nSlots - 1) {
+            else
+            {
+                if (idx != -1)
+                {
+                    if (idx == apage->bl.hdr.nSlots - 1)
+                    {
                         nextPid.volNo = root->volNo;
                         nextPid.pageNo = apage->bl.hdr.nextPage;
 
                         e = BfM_FreeTrain(root, PAGE_BUF);
-                        if(e<0) ERR(e);
+                        if (e < 0)
+                            ERR(e);
 
-                        if(nextPid.pageNo == NIL){
+                        if (nextPid.pageNo == NIL)
+                        {
                             cursor->flag = CURSOR_EOS;
-                            return(eNOERROR);
+                            return (eNOERROR);
                         }
 
                         e = BfM_GetTrain(&nextPid, &apage, PAGE_BUF);
-                        if(e<0) ERR(e);
+                        if (e < 0)
+                            ERR(e);
 
-                        idx = 0;
+                        slotNo = 0;
                         leafPid = nextPid;
                     }
-                    else{
-                        idx += 1;
+                    else
+                    {
+                        slotNo = idx + 1;
                     }
-
                 }
-                else{
-                    //every key is bigger than given key : pick smallest key : slot 0
-                    idx = 0;
+                else
+                {
+                    slotNo = 0;
                 }
             }
-
         }
-
-        //need to have valid {apage, idx, leafPid}
-        lEntry = apage->bl.data + apage->bl.slot[-idx];
+        lEntry = apage->bl.data + apage->bl.slot[-slotNo];
         alignedKlen = ALIGNED_LENGTH(lEntry->klen);
         oidArray = &lEntry->kval[alignedKlen];
 
-        cursor->slotNo = idx;
+        cursor->slotNo = slotNo;
         cursor->leaf = leafPid;
         cursor->key.len = lEntry->klen;
         memcpy(cursor->key.val, lEntry->kval, lEntry->klen);
         cursor->oid = *oidArray;
         cursor->flag = CURSOR_ON;
-        
-        
-        if(stopCompOp == SM_GE || stopCompOp == SM_GT || stopCompOp == SM_LE || stopCompOp == SM_LT){
-            cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
-            if(cmp == EQUAL){
-                if(stopCompOp == SM_GT || stopCompOp == SM_LT){
-                    cursor->flag = CURSOR_INVALID;
-                }
-            }
-            else if(cmp == GREATER){
-                if(stopCompOp == SM_LE || stopCompOp == SM_LT){
-                    cursor->flag = CURSOR_INVALID;
-                }
 
+        if (stopCompOp == SM_GE || stopCompOp == SM_GT || stopCompOp == SM_LE || stopCompOp == SM_LT)
+        {
+            cmp = edubtm_KeyCompare(kdesc, &cursor->key, stopKval);
+            if (cmp == EQUAL)
+            {
+                if (stopCompOp == SM_GT || stopCompOp == SM_LT)
+                {
+                    cursor->flag = CURSOR_INVALID;
+                }
             }
-            else if(cmp == LESS){
-                if(stopCompOp == SM_GE || stopCompOp == SM_GT){
+            else if (cmp == GREATER)
+            {
+                if (stopCompOp == SM_LE || stopCompOp == SM_LT)
+                {
+                    cursor->flag = CURSOR_INVALID;
+                }
+            }
+            else if (cmp == LESS)
+            {
+                if (stopCompOp == SM_GE || stopCompOp == SM_GT)
+                {
                     cursor->flag = CURSOR_INVALID;
                 }
             }
         }
-        
-
 
         e = BfM_FreeTrain(&leafPid, PAGE_BUF);
-        if(e<0) ERR(e);
+        if (e < 0)
+            ERR(e);
 
-        return(eNOERROR);
-
-
+        return (eNOERROR);
     }
-    else{
+    else
+    {
         ERR(eBADBTREEPAGE_BTM);
     }
 
+    return (eNOERROR);
 
-
-
-    return(eNOERROR);
-    
 } /* edubtm_Fetch() */
-

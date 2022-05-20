@@ -34,12 +34,9 @@
  *  Four edubtm_InitLeaf(PageID*, Boolean)
  */
 
-
 #include "EduBtM_common.h"
 #include "BfM.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * edubtm_InitInternal()
@@ -59,39 +56,39 @@
  *    some errors caused by function calls
  */
 Four edubtm_InitInternal(
-    PageID  *internal,		/* IN the PageID to be initialized */
-    Boolean root,		/* IN Is it root ? */
-    Boolean isTmp)              /* IN Is it temporary ? - COOKIE12FEB98 */
+    PageID *internal, /* IN the PageID to be initialized */
+    Boolean root,     /* IN Is it root ? */
+    Boolean isTmp)    /* IN Is it temporary ? - COOKIE12FEB98 */
 {
-	Four e;			/* error number */
-    BtreeInternal *page;	/* a page pointer */
+    Four e;              /* error number */
+    BtreeInternal *page; /* a page pointer */
 
     e = BfM_GetNewTrain(internal, &page, PAGE_BUF);
-    if( e < 0 ) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     page->hdr.pid = *internal;
-    SET_PAGE_TYPE(page, BTREE_PAGE_TYPE); //page->hdr.flags
+    SET_PAGE_TYPE(page, BTREE_PAGE_TYPE); 
     page->hdr.type = INTERNAL;
-    if(root == TRUE)
+    if (root)
         page->hdr.type |= ROOT;
-    
+
     page->hdr.p0 = NIL;
     page->hdr.nSlots = 0;
     page->hdr.free = 0;
     page->hdr.unused = 0;
 
     e = BfM_SetDirty(internal, PAGE_BUF);
-    if( e < 0 ) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_FreeTrain(internal, PAGE_BUF);
-    if( e < 0 ) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-    
-    return(eNOERROR);
-    
-}  /* edubtm_InitInternal() */
+    return (eNOERROR);
 
-
+} /* edubtm_InitInternal() */
 
 /*@================================
  * edubtm_InitLeaf()
@@ -111,22 +108,23 @@ Four edubtm_InitInternal(
  *    some errors caused by function calls
  */
 Four edubtm_InitLeaf(
-    PageID *leaf,		/* IN the PageID to be initialized */
-    Boolean root,		/* IN Is it root ? */
-    Boolean isTmp)              /* IN Is it temporary ? */
+    PageID *leaf,  /* IN the PageID to be initialized */
+    Boolean root,  /* IN Is it root ? */
+    Boolean isTmp) /* IN Is it temporary ? */
 {
-    Four e;			/* error number */
-    BtreeLeaf *page;		/* a page pointer */
+    Four e;          /* error number */
+    BtreeLeaf *page; /* a page pointer */
 
     e = BfM_GetNewTrain(leaf, &page, PAGE_BUF);
-    if( e < 0 ) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     page->hdr.pid = *leaf;
-    SET_PAGE_TYPE(page, BTREE_PAGE_TYPE); //page->hdr.flags
+    SET_PAGE_TYPE(page, BTREE_PAGE_TYPE);
     page->hdr.type = LEAF;
-    if(root == TRUE)
+    if (root)
         page->hdr.type |= ROOT;
-    
+
     page->hdr.nSlots = 0;
     page->hdr.free = 0;
     page->hdr.prevPage = NIL;
@@ -134,11 +132,13 @@ Four edubtm_InitLeaf(
     page->hdr.unused = 0;
 
     e = BfM_SetDirty(leaf, PAGE_BUF);
-    if( e < 0 ) ERR(e);
+    if (e < 0)
+        ERR(e);
 
     e = BfM_FreeTrain(leaf, PAGE_BUF);
-    if( e < 0 ) ERR(e);
-    
-    return(eNOERROR);
-    
-}  /* edubtm_InitLeaf() */
+    if (e < 0)
+        ERR(e);
+
+    return (eNOERROR);
+
+} /* edubtm_InitLeaf() */

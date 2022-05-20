@@ -22,29 +22,26 @@
 /*    without prior written permission of the copyright owner.                */
 /*                                                                            */
 /******************************************************************************/
-/* 
+/*
  * Module:	EduBtM_DropIndex.c
  *
- * Description : 
+ * Description :
  *  Drop the B+ tree Index specified by 'rootPid', a root PageID of the B+tree.
  *
  * Exports:
  *  Four EduBtM_DropIndex(FileID*, PageID*, Pool*, DeallocListElem*)
  */
 
-
 #include "EduBtM_common.h"
 #include "EduBtM_Internal.h"
-
-
 
 /*@================================
  * EduBtM_DropIndex()
  *================================*/
-/* 
+/*
  * Function: Four EduBtM_DropIndex(FileID*, PageID*, Pool*, DeallocListElem*)
  *
- * Description : 
+ * Description :
  * (Following description is for original ODYSSEUS/COSMOS BtM.
  *  For ODYSSEUS/EduCOSMOS EduBtM, refer to the EduBtM project manual.)
  *
@@ -55,20 +52,19 @@
  *    some errors : by other function calls
  */
 Four EduBtM_DropIndex(
-    PhysicalFileID *pFid,	/* IN FileID of the Btree file */
-    PageID *rootPid,		/* IN root PageID to be dropped */
-    Pool   *dlPool,		/* INOUT pool of the dealloc list elements */
+    PhysicalFileID *pFid,    /* IN FileID of the Btree file */
+    PageID *rootPid,         /* IN root PageID to be dropped */
+    Pool *dlPool,            /* INOUT pool of the dealloc list elements */
     DeallocListElem *dlHead) /* INOUT head of the dealloc list */
 {
-	Four e;			/* for the error number */
-
+    Four e; /* for the error number */
 
     /*@ Free all pages concerned with the root. */
 
     e = edubtm_FreePages(pFid, rootPid, dlPool, dlHead);
-    if(e<0) ERR(e);
+    if (e < 0)
+        ERR(e);
 
-	
-    return(eNOERROR);
-    
+    return (eNOERROR);
+
 } /* EduBtM_DropIndex() */
