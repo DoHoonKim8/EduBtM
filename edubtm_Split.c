@@ -94,6 +94,7 @@ Four edubtm_SplitInternal(
     btm_InternalEntry           *nEntry;                /* internal entry in the new page, npage*/
     Boolean                     isTmp;
 
+    isTmp = FALSE;
     e = btm_AllocPage(catObjForFile, &fpage->hdr.pid, &newPid);
     if (e < 0) ERR( e );
 
@@ -127,13 +128,26 @@ Four edubtm_SplitInternal(
         }
         sum += entryLen + sizeof(Two);
     }
+    
+    tpage->hdr.nSlots = j;
+    if (tpage->hdr.type & ROOT) {
+        tpage->hdr.type ^= ROOT;
+    }
 
-    fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]);
-    npage->hdr.p0 = fEntry->spid;
+    if (i == high + 1) {
+        ritem->spid = newPid.pageNo;
+        ritem->klen = item->klen;
+        memcpy(ritem->kval, item->kval, item->klen);
+    } else {
+        fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]);
+        ritem->spid = newPid.pageNo;
+        ritem->klen = fEntry->klen;
+        memcpy(ritem->kval, fEntry->kval, fEntry->klen);
+        i++;
+    }
 
-    ritem->spid = newPid.pageNo;
-    ritem->klen = fEntry->klen;
-    memcpy(ritem->kval, fEntry->kval, fEntry->klen);
+    fEntry = (btm_InternalEntry*)&(fpage->data[fpage->slot[-i]]); 
+    npage->hdr.p0 = fEntry->spid; 
 
     k = 0;
     nEntryOffset = 0;
@@ -157,7 +171,7 @@ Four edubtm_SplitInternal(
         nEntryOffset += entryLen;
     }
 
-    if (isTmp) {
+    if (isTmp == TRUE) {
         if (sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen) > BI_CFREE(tpage)) {
             edubtm_CompactInternalPage(tpage, NIL);
         }
@@ -169,6 +183,9 @@ Four edubtm_SplitInternal(
 
         tpage->slot[-(high + 1)] = tpage->hdr.free;
         memcpy(&tpage->data[tpage->hdr.free], fEntry, entryLen);
+
+        tpage->hdr.free += entryLen;
+        tpage->hdr.nSlots++;
     }
 
     memcpy(fpage, tpage, PAGESIZE);
@@ -245,6 +262,7 @@ Four edubtm_SplitLeaf(
     Boolean                     flag;
     Boolean                     isTmp;
  
+    isTmp = FALSE;
     e = btm_AllocPage(catObjForFile, root, &newPid);
     if (e < 0) ERR( e );
 
@@ -280,7 +298,7 @@ Four edubtm_SplitLeaf(
         sum += entryLen + sizeof(Two);
     }
 
-    tpage.hdr.nSlots = j;    
+    tpage.hdr.nSlots = j;
 
     if (tpage.hdr.type & ROOT) {
         tpage.hdr.type ^= ROOT;
@@ -310,7 +328,7 @@ Four edubtm_SplitLeaf(
         nEntryOffset += entryLen;
     }
 
-    if (isTmp) {
+    if (isTmp == TRUE) {
         if (BL_CFREE(&tpage) < itemEntryLen) {
             edubtm_CompactLeafPage(&tpage, NIL);
         }
@@ -350,8 +368,7 @@ Four edubtm_SplitLeaf(
 
     }
 
-    //return value
-    nEntry = &npage->data[npage->slot[0]]; //discriminator key : first slot of new page
+    nEntry = &npage->data[npage->slot[0]]; 
     ritem->spid = newPid.pageNo;
     ritem->klen = nEntry->klen;
     memcpy(ritem->kval, nEntry->kval, nEntry->klen);

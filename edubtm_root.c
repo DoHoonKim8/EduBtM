@@ -91,16 +91,15 @@ Four edubtm_root_insert(
     if (e < 0) ERR( e );
 
     memcpy(newPage, rootPage, sizeof(rootPage));
+    newPage->any.hdr.pid = newPid;
 
     e = edubtm_InitInternal(root, TRUE, isTmp);
     if (e < 0) ERR( e );
 
     rootPage->bi.slot[0] = 0;
 
-    entry = (btm_InternalEntry*)rootPage->bi.data;
-    entry->klen = item->klen;
-    entry->spid = item->spid;
-    memcpy(entry->kval, item->kval, item->klen);
+    entry = &rootPage->bi.data[0];
+    memcpy(entry, item, sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen));
     
     rootPage->bi.hdr.nSlots = 1;
     rootPage->bi.hdr.free = sizeof(ShortPageID) + ALIGNED_LENGTH(sizeof(Two) + item->klen);
